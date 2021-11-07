@@ -5,7 +5,6 @@ from rich.table import Table
 class Journal:
 
     def __init__(self, base_folder="D:\\Desktop\\Spaghett_Bot\\Folders\\Journal format"):
-        self.time = time.time()
         self.base = base_folder
         self.path = self.base + "\\Diarium"
         self.files = [f for f in os.listdir(self.path)]
@@ -26,7 +25,6 @@ class Journal:
                 self.write_dict()
             else:
                 self.init_dict()
-        self.time = time.time() - self.time
 
     def init_dict(self):
         try:
