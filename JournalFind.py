@@ -1,10 +1,11 @@
-import re, time, shelve, random, os, shutil, pathlib
+import re, shelve, random, os, shutil, pathlib
 from rich.console import Console
 from rich.table import Table
+from collections import Counter
 
 class Journal:
 
-    def __init__(self, base_folder="D:\\Desktop\\Spaghett_Bot\\Folders\\Journal format"):
+    def __init__(self, base_folder=os.getcwd()):
         self.base = base_folder
         self.path = self.base + "\\Diarium"
         self.files = [f for f in os.listdir(self.path)]
@@ -15,16 +16,14 @@ class Journal:
                 f.write("-1")
         with open(self.base+'\\files.txt') as f:
             files_num = int(f.read())
-            file_counts = files_num, len(self.files), self.count_existing_files()
-            # files_num -> last checked number of files
-            # len(self.files) -> number of files in the Diarium folder
-            # self.count_existing_files() -> number of files in the {year} folders
-            if file_counts.count(file_counts[0]) != len(file_counts):
-                self.console.print("File count mismatch, formatting...")
-                self.format()
-                self.write_dict()
-            else:
-                self.init_dict()
+        # files_num -> last checked number of files
+        # len(self.files) -> number of files in the Diarium folder
+        if files_num != len(self.files):
+            self.console.print("File count mismatch, formatting...")
+            self.write_dict()
+            self.update_file_count()
+        else:
+            self.init_dict()
 
     def init_dict(self):
         try:
@@ -41,24 +40,20 @@ class Journal:
             self.freq_table = jour['freq']
 
     def write_dict(self):
-        self.format()
         self.words = {}
         self.freq_table = self.freq()
         with shelve.open(f'{self.base}\\shelve\\journal') as jour:
             jour['words'] = self.words
             jour['freq'] = self.freq()
 
+    def update_file_count(self):
+        with open(self.base+'\\files.txt', "w") as f:
+            f.write(str(len(self.files)))
+
     def get_years(self):
         return {int(file[8:12]) for file in self.files}
 
-    def count_existing_files(self):
-        count = 0
-        for year in self.years:
-            for root, dirs, files in os.walk(f"{self.base}\\{year}"):
-                count += len(files)
-        return count
-
-    def format(self):
+    def create_tree_folder_structure(self):
         file_count = 0
         for year in self.years:
             if os.path.exists(f"{self.base}\\{year}"):
@@ -82,22 +77,21 @@ class Journal:
         return file_count
 
     def freq(self):
+        file_content_list = []
         for file in self.files:
             with open(f'{self.path}\\{file}', 'r', encoding='utf-8') as f:
-                txt = f.read()
-                for sentence in re.split('[.\n]+', txt):
-                    for word in sentence.split():
-                        if word[-1] == ',': word = word[:-1]
-                        word = word.lower()
-                        self.words[word] = self.words.get(word, 0) + 1
+                file_content_list.append(f.read())
+        content = "".join(file_content_list)
+        self.words = Counter(re.findall("\w+", content.lower()))
         return sorted(self.words.items(), key=lambda x: x[1], reverse=True)
 
     def frequency_table(self, count=20):
         return self.freq_table[:count]
 
-    def total_word_count(self, unique=False):
-        if unique:
-            return len(self.freq_table)
+    def unique_word_count(self):
+        return len(self.freq_table)
+
+    def total_word_count(self):
         return sum(self.words.values())
 
     def find_word(self, word):
@@ -108,7 +102,7 @@ class Journal:
             with open(f'{self.path}\\{file}', 'r', encoding='utf-8') as f:
                 txt = f.read()
                 putDate, foundWord = False, False
-                for sentence in re.split('[.\n]+', txt):
+                for sentence in re.split('(?<=[.!?\n])\s+', txt):
                     sentence = sentence.strip()
                     if re.search(word, sentence, re.IGNORECASE):
                         if not putDate:
@@ -121,7 +115,7 @@ class Journal:
                                 output_list.append(f'[{highlight_style}]{w}[/{highlight_style}]')
                             else:
                                 output_list.append(f"{w}")
-                        output_list[-1] += ".\n"
+                        output_list[-1] += "\n"
             if foundWord:
                 output_list.append("\n")
 
@@ -138,7 +132,7 @@ class Journal:
             table.add_column(col)
         table.add_row("-h", "help", "")
         table.add_row("-f", "find", "text")
-        table.add_row("-s", "stats", "")
+        table.add_row("-s", "stats", "number of top words showed")
         table.add_row("-c", "count occurences of text", "text")
         table.add_row("-r", "random entry", "")
         table.add_row("-fix", "re-calculate shit", "")
@@ -152,11 +146,13 @@ class Journal:
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
             if action == "-f":
                 out, count = self.find_word(val)
-                self.console.print(f"{out}The word {val} was found {count} times")
+                self.console.print(f"{out}The word {val} was found {count} times", highlight=False)
             elif action == "-s":
-                self.console.print('All words count: ', self.total_word_count(False))
-                self.console.print('Unique words count: ', self.total_word_count(True))
-                self.console.print(self.frequency_table())
+                self.console.print("All words count:", self.total_word_count())
+                self.console.print("Unique words count:", self.unique_word_count())
+                if not val or not val.isnumeric():
+                    val = 10
+                self.console.print(self.frequency_table(int(int(val))))
             elif action == "-c":
                 print(f"The word '{val}' was found {self.words[val]} times")
             elif action == "-r":
@@ -164,10 +160,8 @@ class Journal:
             elif action == "-h":
                 self.console.print(table)
             elif action == "-fix":
-                self.console.print("Creating files...")
-                file_count = self.format()
-                self.console.print(f"Created {file_count} files\nSaving into a dictionary..")
                 self.write_dict()
+                self.update_file_count()
                 self.console.print("Done fixing")
             elif action == "-clr":
                 os.system("cls")
