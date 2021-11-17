@@ -11,10 +11,12 @@ class Journal:
         self.files = [f for f in os.listdir(self.path)]
         self.years = self.get_years()
         self.console = Console()
-        if (not os.path.exists(self.base+'\\files.txt')):
-            with open(self.base+'\\files.txt', "w") as f:
+        self.word_count_list = []
+        self.word_count_dict = {}
+        if (not os.path.exists(self.base+"\\files.txt")):
+            with open(self.base+"\\files.txt", "w") as f:
                 f.write("-1")
-        with open(self.base+'\\files.txt') as f:
+        with open(self.base+"\\files.txt") as f:
             files_num = int(f.read())
         # files_num -> last checked number of files
         # len(self.files) -> number of files in the Diarium folder
@@ -23,7 +25,7 @@ class Journal:
             self.write_dict()
             self.update_file_count()
         else:
-            self.init_dict()
+            self.init_dict()        
 
     def init_dict(self):
         try:
@@ -35,19 +37,18 @@ class Journal:
             self.write_dict()
 
     def read_dict(self):
-        with shelve.open(f'{self.base}\\shelve\\journal') as jour:
-            self.words = jour['words']
-            self.freq_table = jour['freq']
+        with shelve.open(f"{self.base}\\shelve\\journal") as jour:
+            self.word_count_list = jour["words"]
+            self.word_count_dict = jour["freq"]
 
     def write_dict(self):
-        self.words = {}
-        self.freq_table = self.freq()
-        with shelve.open(f'{self.base}\\shelve\\journal') as jour:
-            jour['words'] = self.words
-            jour['freq'] = self.freq()
+        self.create_word_frequency()
+        with shelve.open(f"{self.base}\\shelve\\journal") as jour:
+            jour["words"] = self.word_count_list
+            jour["freq"] = self.word_count_dict
 
     def update_file_count(self):
-        with open(self.base+'\\files.txt', "w") as f:
+        with open(self.base+"\\files.txt", "w") as f:
             f.write(str(len(self.files)))
 
     def get_years(self):
@@ -59,70 +60,70 @@ class Journal:
             if os.path.exists(f"{self.base}\\{year}"):
                 shutil.rmtree(f"{self.base}\\{year}")
             for i in range(1, 13):
-                pathlib.Path(f'{year}/{i}').mkdir(parents=True, exist_ok=True)
+                pathlib.Path(f"{year}/{i}").mkdir(parents=True, exist_ok=True)
         for file in self.files:
-            with open(f'{self.path}\\{file}', 'r', errors='ignore') as f:
+            with open(f"{self.path}\\{file}", "r", errors="ignore") as f:
                 content = f.read()
-                txt = file[8:].split('-')
-                txt[2] = txt[2][:txt[2].find('.')]
-                if txt[2][0] == '0':
-                    txt[2] = txt[2][1:]
-                if txt[1][0] == '0':
-                    txt[1] = txt[1][1:]
-                with open(f'{txt[0]}/{txt[1]}/{txt[2]}.txt', 'w') as new:
+                year, month, day = file[8:].split("-")
+                if month[0] == "0":
+                    month = month[1:]
+                if day[0] == "0":
+                    day = day[1:]
+                with open(f"{year}/{month}/{day}.txt", "w") as new:
                     new.write(content)
                     file_count += 1
-        with open(self.base+'\\files.txt', 'w') as f:
+        with open(self.base+"\\files.txt", "w") as f:
             f.write(str(len(self.files)))
         return file_count
 
-    def freq(self):
+    def create_word_frequency(self):
         file_content_list = []
         for file in self.files:
-            with open(f'{self.path}\\{file}', 'r', encoding='utf-8') as f:
+            with open(f"{self.path}\\{file}", "r", encoding="utf-8") as f:
                 file_content_list.append(f.read())
         content = "".join(file_content_list)
-        self.words = Counter(re.findall("\w+", content.lower()))
-        return sorted(self.words.items(), key=lambda x: x[1], reverse=True)
+        self.word_count_list = Counter(re.findall("\w+", content.lower()))
+        self.word_count_dict = sorted(self.word_count_list.items(), key=lambda x: x[1], reverse=True)
 
     def frequency_table(self, count=20):
-        return self.freq_table[:count]
+        return self.word_count_dict[:count]
 
-    def unique_word_count(self):
-        return len(self.freq_table)
+    def get_unique_word_count(self):
+        return len(self.word_count_dict)
 
-    def total_word_count(self):
-        return sum(self.words.values())
+    def get_total_word_count(self):
+        return sum(self.word_count_list.values())
 
     def find_word(self, word):
         count = 0
         highlight_style = "bold red"
         output_list = []
         for file in self.files:
-            with open(f'{self.path}\\{file}', 'r', encoding='utf-8') as f:
+            with open(f"{self.path}\\{file}", "r", encoding="utf-8") as f:
                 txt = f.read()
-                putDate, foundWord = False, False
-                for sentence in re.split('(?<=[.!?\n])\s+', txt):
+                put_date, found_word = False, False
+                for sentence in re.split("(?<=[.!?\n])\s+", txt):
                     sentence = sentence.strip()
                     if re.search(word, sentence, re.IGNORECASE):
-                        if not putDate:
-                            y, m, d = file[8:-4].split('-')
-                            output_list.append(f'[blue]Date: {d}.{m}.{y}[/blue]\n')
-                        putDate, foundWord = True, True
+                        if not put_date:
+                            y, m, d = file[8:-4].split("-")
+                            output_list.append(f"[blue]Date: {d}.{m}.{y}[/blue]\n")
+                            put_date = True
+                        found_word = True
                         for w in sentence.split():
                             if word.lower() in w.lower():
                                 count += 1
-                                output_list.append(f'[{highlight_style}]{w}[/{highlight_style}]')
+                                output_list.append(f"[{highlight_style}]{w}[/{highlight_style}]")
                             else:
                                 output_list.append(f"{w}")
                         output_list[-1] += "\n"
-            if foundWord:
+            if found_word:
                 output_list.append("\n")
 
         return " ".join(output_list), count
 
     def random_entry(self):
-        with open(self.path+"\\"+random.choice(self.files), 'r', encoding='utf-8') as f:
+        with open(self.path+"\\"+random.choice(self.files), "r", encoding="utf-8") as f:
             return f.read()
 
     def start(self):
@@ -148,13 +149,13 @@ class Journal:
                 out, count = self.find_word(val)
                 self.console.print(f"{out}The word {val} was found {count} times", highlight=False)
             elif action == "-s":
-                self.console.print("All words count:", self.total_word_count())
-                self.console.print("Unique words count:", self.unique_word_count())
+                self.console.print("All words count:", self.get_total_word_count())
+                self.console.print("Unique words count:", self.get_unique_word_count())
                 if not val or not val.isnumeric():
                     val = 10
                 self.console.print(self.frequency_table(int(int(val))))
             elif action == "-c":
-                print(f"The word '{val}' was found {self.words[val]} times")
+                print(f"The word '{val}' was found {self.word_count_list[val]} times")
             elif action == "-r":
                 print(self.random_entry())
             elif action == "-h":
