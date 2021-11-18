@@ -25,7 +25,7 @@ class Journal:
             self.write_dict()
             self.update_file_count()
         else:
-            self.init_dict()        
+            self.init_dict()
 
     def init_dict(self):
         try:
@@ -82,17 +82,29 @@ class Journal:
             with open(f"{self.path}\\{file}", "r", encoding="utf-8") as f:
                 file_content_list.append(f.read())
         content = "".join(file_content_list)
-        self.word_count_list = Counter(re.findall("\w+", content.lower()))
-        self.word_count_dict = sorted(self.word_count_list.items(), key=lambda x: x[1], reverse=True)
+        self.word_count_dict = Counter(re.findall("\w+", content.lower()))
+        self.word_count_list = sorted(self.word_count_dict.items(), key=lambda x: x[1], reverse=True)
 
-    def frequency_table(self, count=20):
-        return self.word_count_dict[:count]
+    def get_most_frequent_words(self, count=20):
+        return self.word_count_list[:count]
 
     def get_unique_word_count(self):
         return len(self.word_count_dict)
 
     def get_total_word_count(self):
-        return sum(self.word_count_list.values())
+        return sum(self.word_count_dict.values())
+
+    def percentage_english_words(self):
+        # bad statistic cuz a word can be in both Slovak and English and I don't have a databse of Slovak words to compare
+        english_words = set()
+        with open("D:\\Desktop\\Spaghett_bot\\folders\\text\\words_alpha.txt", "r") as f:
+            for line in f:
+                english_words.add(line.strip())
+
+        all_words_count = self.get_total_word_count()
+        english_word_count = sum(count for word, count in self.word_count_list if word in english_words)
+        print(f"All words: {all_words_count} | English word count: {english_word_count}")
+        print(f"Percentage of english words: {round(english_word_count*100/all_words_count,3)}%")
 
     def find_word(self, word):
         count = 0
@@ -153,9 +165,9 @@ class Journal:
                 self.console.print("Unique words count:", self.get_unique_word_count())
                 if not val or not val.isnumeric():
                     val = 10
-                self.console.print(self.frequency_table(int(int(val))))
+                self.console.print(self.get_most_frequent_words(int(int(val))))
             elif action == "-c":
-                print(f"The word '{val}' was found {self.word_count_list[val]} times")
+                print(f"The word '{val}' was found {self.word_count_dict[val]} times")
             elif action == "-r":
                 print(self.random_entry())
             elif action == "-h":
