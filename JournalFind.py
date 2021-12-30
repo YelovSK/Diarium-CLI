@@ -14,11 +14,11 @@ class Journal:
         self.word_count_list = []
         self.word_count_dict = {}
         self.files_list_path = os.path.join(self.base, "files.txt")
-        if not os.path.exists(self.files_list_path):
-            open(self.files_list_path, "w").write("-1")
         self.check_file_count_mismatch()
 
     def check_file_count_mismatch(self):
+        if not os.path.exists(self.files_list_path):
+            open(self.files_list_path, "w").write("-1")
         files_num = int(open(self.files_list_path).read())
         # files_num -> last checked number of files
         # len(self.files) -> number of files in the Diarium folder
@@ -59,7 +59,9 @@ class Journal:
         self.word_count_list = sorted(self.word_count_dict.items(), key=lambda x: x[1], reverse=True)
 
     def get_years(self):
-        return {int(file[8:12]) for file in self.files}
+        YEAR_START_IX = 8
+        YEAR_END_IX = YEAR_START_IX + 4
+        return {int(file[YEAR_START_IX : YEAR_END_IX]) for file in self.files}
  
     def create_tree_folder_structure(self):
         self.create_year_and_month_folders()
@@ -67,21 +69,21 @@ class Journal:
         self.update_file_count()
         
     def create_year_and_month_folders(self):
-        for year in self.years:
+        for year in [str(y) for y in self.years]:
             if os.path.exists(os.path.join(self.base, year)):
                 shutil.rmtree(os.path.join(self.base, year))
-            for month in range(1, 12+1):
+            for month in [str(m) for m in range(1, 12+1)]:
                 pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
-                
+
     def create_day_files(self):
         for file in self.files:
             file_content = open(os.path.join(self.path, file), errors="ignore").read()
-            year, month, day = file[8:].split("-")
+            year, month, day = file[file.index("2"):].split("-")
             if month[0] == "0":
                 month = month[1:]
             if day[0] == "0":
                 day = day[1:]
-            with open(os.path.join(year, month, day+".txt"), "w") as day_file:
+            with open(os.path.join(year, month, day), "w") as day_file:
                 day_file.write(file_content)
                 
     def update_file_count(self):
@@ -97,7 +99,7 @@ class Journal:
         return sum(self.word_count_dict.values())
 
     def percentage_english_words(self):
-        # bad statistic cuz a word can be in both Slovak and English and I don't have a databse of Slovak words to compare
+        # bad statistic cuz a word can be in both Slovak and English and I don't have a database of Slovak words to compare
         english_words = set()
         with open(os.path.join("..", "text", "words_alpha.txt")) as f:
             for line in f:
@@ -111,28 +113,27 @@ class Journal:
         self.occurences = 0
         self.output_list = []
         for file in self.files:
-            self.find_word_in_file(file, word)
-        return " ".join(self.output_list), self.occurences
+            self._find_word_in_file(file, word)
 
-    def find_word_in_file(self, file, word):
+    def _find_word_in_file(self, file, word):
         file_content = open(os.path.join(self.path, file), encoding="utf-8").read()
         date_inserted = False
-        sentences = self.split_text_into_sentences(file_content)
+        sentences = self._split_text_into_sentences(file_content)
         for sentence in sentences:
             if not re.search(word, sentence, re.IGNORECASE):
                 continue
             if not date_inserted:
-                self.insert_date(file)
+                self._insert_date(file)
                 date_inserted = True
-            self.find_word_in_sentence(sentence, word)
+            self._find_word_in_sentence(sentence, word)
         if date_inserted:
             self.output_list.append("\n")
 
-    def split_text_into_sentences(self, text):
+    def _split_text_into_sentences(self, text):
         split_regex = "(?<=[.!?\n])\s+"
         return [sentence.strip() for sentence in re.split(split_regex, text)]
             
-    def find_word_in_sentence(self, sentence, word):
+    def _find_word_in_sentence(self, sentence, word):
         highlight_style = "bold red"
         for curr_word in sentence.split():
             if word.lower() in curr_word.lower():
@@ -142,16 +143,15 @@ class Journal:
                 self.output_list.append(curr_word)
         self.output_list[-1] += "\n"
 
-    def insert_date(self, file_name):
+    def _insert_date(self, file_name):
         file_date_begin = file_name.index("2")
         file_date_end = file_name.index(".txt")
         year, month, day = file_name[file_date_begin : file_date_end].split("-")
         date_style = "blue"
         self.output_list.append(f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]\n")
 
-    def random_entry(self):
-        with open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8") as f:
-            return f.read()
+    def get_random_day(self):
+        return open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8").read()
 
     def create_help_table(self):
         table = Table(title="Functions")
@@ -163,7 +163,8 @@ class Journal:
         table.add_row("-c", "count occurences of text", "text")
         table.add_row("-r", "random entry", "")
         table.add_row("-lang", "eng/sk percentage", "")
-        table.add_row("-fix", "re-calculate shit", "")
+        table.add_row("-fol", "create folder structure", "")
+        table.add_row("-fix", "refresh dictionary", "")
         table.add_row("-clr", "clear console", "")
         table.add_row("-q", "quit", "")
         return table
@@ -178,8 +179,9 @@ class Journal:
             else:
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
             if action == "-f":
-                out, count = self.find_word_in_journal(val)
-                self.console.print(f"{out}The word {val} was found {count} times", highlight=False)
+                self.find_word_in_journal(val)
+                out = " ".join(self.output_list)
+                self.console.print(f"{out}The word {val} was found {self.occurences} times", highlight=False)
             elif action == "-s":
                 self.console.print("All words count:", self.get_total_word_count())
                 self.console.print("Unique words count:", self.get_unique_word_count())
@@ -187,11 +189,15 @@ class Journal:
                     val = 10
                 self.console.print(self.get_most_frequent_words(int(int(val))))
             elif action == "-c":
-                self.console.print(f"The word '{val}' was found {self.word_count_dict[val]} times")
+                self.console.print(f"The exact match of word '{val}' was found {self.word_count_dict[val]} times")
+                self.find_word_in_journal(val)
+                self.console.print(f"The number of all occurences (incl. variations) is {self.occurences}")
             elif action == "-r":
-                self.console.print(self.random_entry())
+                self.console.print(self.get_random_day())
             elif action == "-lang":
                 self.percentage_english_words()
+            elif action == "-fol":
+                self.create_tree_folder_structure()
             elif action == "-h":
                 self.console.print(table)
             elif action == "-fix":
