@@ -1,7 +1,8 @@
-import re, shelve, random, os, shutil, pathlib
+import re, shelve, random, os, shutil, pathlib, time
 from rich.console import Console
 from rich.table import Table
 from collections import Counter
+from io import StringIO
 
 class Journal:
 
@@ -14,6 +15,7 @@ class Journal:
         self.word_count_list = []
         self.word_count_dict = {}
         self.files_list_path = os.path.join(self.base, "files.txt")
+        self.exact_match = False
         self.check_file_count_mismatch()
 
     def check_file_count_mismatch(self):
@@ -111,7 +113,7 @@ class Journal:
 
     def find_word_in_journal(self, word):
         self.occurences = 0
-        self.output_list = []
+        self.output_string = StringIO()
         for file in self.files:
             self._find_word_in_file(file, word)
 
@@ -120,35 +122,52 @@ class Journal:
         date_inserted = False
         sentences = self._split_text_into_sentences(file_content)
         for sentence in sentences:
-            if not re.search(word, sentence, re.IGNORECASE):
+            if not self.is_word_in_sentence(sentence, word):
                 continue
             if not date_inserted:
                 self._insert_date(file)
                 date_inserted = True
             self._find_word_in_sentence(sentence, word)
         if date_inserted:
-            self.output_list.append("\n")
+            self.output_string.write("\n")
 
     def _split_text_into_sentences(self, text):
         split_regex = "(?<=[.!?\n])\s+"
         return [sentence.strip() for sentence in re.split(split_regex, text)]
-            
+
     def _find_word_in_sentence(self, sentence, word):
         highlight_style = "bold red"
         for curr_word in sentence.split():
-            if word.lower() in curr_word.lower():
+            if self.is_the_same_word(curr_word, word):
                 self.occurences += 1
-                self.output_list.append(f"[{highlight_style}]{curr_word}[/{highlight_style}]")
+                self.output_string.write(f"[{highlight_style}]{curr_word}[/{highlight_style}] ")
             else:
-                self.output_list.append(curr_word)
-        self.output_list[-1] += "\n"
+                self.output_string.write(f"{curr_word} ")
+        self.output_string.write("\n")
+
+    def is_word_in_sentence(self, sentence, word):
+        return any(
+            self.is_the_same_word(curr_word, word)
+            for curr_word in sentence.split()
+        )
+
+    def is_the_same_word(self, word1, word2):
+        if self.exact_match:
+            return word1.lower() == word2.lower()
+        if len(word2) > len(word1): # word1 longer or same
+            word1, word2 = word2, word1
+        if len(word1) - len(word2) > len(word2):
+            return False
+        word1 = word1.lower()
+        word2 = word2.lower()
+        return word2 in word1
 
     def _insert_date(self, file_name):
         file_date_begin = file_name.index("2")
         file_date_end = file_name.index(".txt")
         year, month, day = file_name[file_date_begin : file_date_end].split("-")
         date_style = "blue"
-        self.output_list.append(f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]\n")
+        self.output_string.write(f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]\n")
 
     def get_random_day(self):
         return open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8").read()
@@ -159,6 +178,7 @@ class Journal:
             table.add_column(col)
         table.add_row("-h", "help", "")
         table.add_row("-f", "find", "text")
+        table.add_row("-fp", "find exact match", "text")
         table.add_row("-s", "stats", "number of top words showed")
         table.add_row("-c", "count occurences of text", "text")
         table.add_row("-r", "random entry", "")
@@ -179,8 +199,14 @@ class Journal:
             else:
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
             if action == "-f":
+                self.exact_match = False
                 self.find_word_in_journal(val)
-                out = " ".join(self.output_list)
+                out = self.output_string.getvalue()
+                self.console.print(f"{out}The word {val} was found {self.occurences} times", highlight=False)
+            if action == "-fp":
+                self.exact_match = True
+                self.find_word_in_journal(val)
+                out = self.output_string.getvalue()
                 self.console.print(f"{out}The word {val} was found {self.occurences} times", highlight=False)
             elif action == "-s":
                 self.console.print("All words count:", self.get_total_word_count())

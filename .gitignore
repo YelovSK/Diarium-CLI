@@ -1,0 +1,7 @@
+# don't
+__pycache__/
+.*/
+.
+*.txt
+!requirements.txt
+journal.*
