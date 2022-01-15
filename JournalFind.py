@@ -2,11 +2,11 @@ import re, shelve, random, os, shutil, pathlib, time
 from rich.console import Console
 from rich.table import Table
 from collections import Counter
-from io import StringIO
+from Finder import Finder
 
 class Journal:
 
-    def __init__(self, base_folder=os.getcwd()):
+    def __init__(self, base_folder: str=os.getcwd()):
         self.base = base_folder
         self.path = os.path.join(self.base, "Diarium")
         self.files = list(os.listdir(self.path))
@@ -15,13 +15,14 @@ class Journal:
         self.word_count_list = []
         self.word_count_dict = {}
         self.files_list_path = os.path.join(self.base, "files.txt")
-        self.exact_match = False
         self.check_file_count_mismatch()
 
     def check_file_count_mismatch(self):
         if not os.path.exists(self.files_list_path):
-            open(self.files_list_path, "w").write("-1")
-        files_num = int(open(self.files_list_path).read())
+            with open(self.files_list_path, "w") as f:
+                f.write("-1")
+        with open(self.files_list_path) as f:
+            files_num = int(f.read())
         # files_num -> last checked number of files
         # len(self.files) -> number of files in the Diarium folder
         if files_num != len(self.files):
@@ -79,7 +80,8 @@ class Journal:
 
     def create_day_files(self):
         for file in self.files:
-            file_content = open(os.path.join(self.path, file), errors="ignore").read()
+            with open(os.path.join(self.path, file), errors="ignore") as f:
+                file_content = f.read()
             year, month, day = file[file.index("2"):].split("-")
             if month[0] == "0":
                 month = month[1:]
@@ -89,7 +91,8 @@ class Journal:
                 day_file.write(file_content)
                 
     def update_file_count(self):
-        open(self.files_list_path, "w").write(str(len(self.files)))
+        with open(self.files_list_path, "w") as f:
+            f.write(str(len(self.files)))
 
     def get_most_frequent_words(self, count=20):
         return self.word_count_list[:count]
@@ -99,6 +102,12 @@ class Journal:
 
     def get_total_word_count(self):
         return sum(self.word_count_dict.values())
+
+    def find(self, word: str, exact_match: bool):
+        files_full_path = [os.path.join(self.path, file) for file in self.files]
+        self.finder = Finder(files_full_path)
+        self.finder.find(word, exact_match)
+        return self.finder.get_current_output()
 
     def percentage_english_words(self):
         # bad statistic cuz a word can be in both Slovak and English and I don't have a database of Slovak words to compare
@@ -111,66 +120,9 @@ class Journal:
         self.console.print(f"All words: {all_words_count} | English word count: {english_word_count}")
         self.console.print(f"Percentage of english words: {round(english_word_count*100 / all_words_count, 3)}%")
 
-    def find_word_in_journal(self, word):
-        self.occurences = 0
-        self.output_string = StringIO()
-        for file in self.files:
-            self._find_word_in_file(file, word)
-
-    def _find_word_in_file(self, file, word):
-        file_content = open(os.path.join(self.path, file), encoding="utf-8").read()
-        date_inserted = False
-        sentences = self._split_text_into_sentences(file_content)
-        for sentence in sentences:
-            if not self.is_word_in_sentence(sentence, word):
-                continue
-            if not date_inserted:
-                self._insert_date(file)
-                date_inserted = True
-            self._find_word_in_sentence(sentence, word)
-        if date_inserted:
-            self.output_string.write("\n")
-
-    def _split_text_into_sentences(self, text):
-        split_regex = "(?<=[.!?\n])\s+"
-        return [sentence.strip() for sentence in re.split(split_regex, text)]
-
-    def _find_word_in_sentence(self, sentence, word):
-        highlight_style = "bold red"
-        for curr_word in sentence.split():
-            if self.is_the_same_word(curr_word, word):
-                self.occurences += 1
-                self.output_string.write(f"[{highlight_style}]{curr_word}[/{highlight_style}] ")
-            else:
-                self.output_string.write(f"{curr_word} ")
-        self.output_string.write("\n")
-
-    def is_word_in_sentence(self, sentence, word):
-        return any(
-            self.is_the_same_word(curr_word, word)
-            for curr_word in sentence.split()
-        )
-
-    def is_the_same_word(self, word1, word2):
-        if self.exact_match:
-            return word1.lower() == word2.lower()
-        if len(word2) > len(word1): # word1 longer or same
-            word1, word2 = word2, word1
-        if len(word1) - len(word2) > len(word2):
-            return False
-        word1 = word1.lower()
-        word2 = word2.lower()
-        return word2 in word1
-
-    def _insert_date(self, file_name):
-        file_date_begin = file_name.index("2")
-        file_date_end = file_name.index(".txt")
-        year, month, day = file_name[file_date_begin : file_date_end].split("-")
-        date_style = "blue"
-        self.output_string.write(f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]\n")
-
     def get_random_day(self):
-        return open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8").read()
+        with open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8") as f:
+            return f.read()
 
     def create_help_table(self):
         table = Table(title="Functions")
@@ -199,15 +151,15 @@ class Journal:
             else:
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
             if action == "-f":
-                self.exact_match = False
-                self.find_word_in_journal(val)
-                out = self.output_string.getvalue()
-                self.console.print(f"{out}The word {val} was found {self.occurences} times", highlight=False)
+                start = time.time()
+                out = self.find(val, False)
+                took_time = round(time.time() - start, 2)
+                self.console.print(out)
+                self.console.print(f"The word {val} was found {self.finder.occurences} times", highlight=False)
+                self.console.print(f"Searched through {self.get_total_word_count()} words in {took_time}s", highlight=False)
             if action == "-fp":
-                self.exact_match = True
-                self.find_word_in_journal(val)
-                out = self.output_string.getvalue()
-                self.console.print(f"{out}The word {val} was found {self.occurences} times", highlight=False)
+                out = self.find(val, True)
+                self.console.print(f"{out}The word {val} was found {self.finder.occurences} times", highlight=False)
             elif action == "-s":
                 self.console.print("All words count:", self.get_total_word_count())
                 self.console.print("Unique words count:", self.get_unique_word_count())
@@ -216,8 +168,8 @@ class Journal:
                 self.console.print(self.get_most_frequent_words(int(int(val))))
             elif action == "-c":
                 self.console.print(f"The exact match of word '{val}' was found {self.word_count_dict[val]} times")
-                self.find_word_in_journal(val)
-                self.console.print(f"The number of all occurences (incl. variations) is {self.occurences}")
+                self.find(val, False)
+                self.console.print(f"The number of all occurences (incl. variations) is {self.finder.occurences}")
             elif action == "-r":
                 self.console.print(self.get_random_day())
             elif action == "-lang":
