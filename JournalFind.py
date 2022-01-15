@@ -180,6 +180,8 @@ class Journal:
                 os.system("cls")
             elif action == "-q":
                 break
+            else:
+                self.console.print("Command not recognized. Type '-h-' for help.")
 
 
 Journal().start()
