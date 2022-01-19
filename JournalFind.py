@@ -5,6 +5,7 @@ import re
 import shelve
 import shutil
 import time
+from io import StringIO
 from collections import Counter
 from rich.console import Console
 from rich.table import Table
@@ -13,7 +14,7 @@ from Finder import Finder
 
 class Journal:
 
-    def __init__(self, base_folder: str = os.getcwd()):
+    def __init__(self, base_folder: str = os.getcwd()) -> None:
         self.base = base_folder
         self.path = os.path.join(self.base, "Diarium")
         self.files = list(os.listdir(self.path))
@@ -57,12 +58,11 @@ class Journal:
             jour["freq"] = self.word_count_dict
 
     def create_word_frequency(self) -> None:
-        file_content_list = []
+        content = StringIO()
         for file in self.files:
             with open(os.path.join(self.path, file), encoding="utf-8") as f:
-                file_content_list.append(f.read())
-        content = "".join(file_content_list).lower()
-        self.word_count_dict = Counter(re.findall(r"\w+", content))
+                content.write(f.read().lower())
+        self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
 
     def get_years(self) -> set[int]:
         YEAR_START_IX = 8
@@ -107,20 +107,15 @@ class Journal:
         return sum(self.word_count_dict.values())
 
     def get_word_occurrences(self, word: str) -> int:
-        if word in self.word_count_dict:
-            return self.word_count_dict[word]
-        return 0
+        return self.word_count_dict[word] if word in self.word_count_dict else 0
 
-    def percentage_english_words(self) -> None:
-        # bad statistic cuz a word can be in both Slovak and English and I don't have a database of Slovak words to compare
+    def get_english_word_count(self) -> int:
+        # not accurate cuz a word can be both Slovak and English and I don't have a database of Slovak words to compare
         english_words = set()
         with open(os.path.join("..", "text", "words_alpha.txt")) as f:
             for line in f:
                 english_words.add(line.strip())
-        all_words_count = self.get_total_word_count()
-        english_word_count = sum(count for word, count in self.word_count_dict.items() if word in english_words)
-        self.console.print(f"All words: {all_words_count} | English word count: {english_word_count}")
-        self.console.print(f"Percentage of english words: {round(english_word_count * 100 / all_words_count, 3)}%")
+        return sum(count for word, count in self.word_count_dict.items() if word in english_words)
 
     def get_random_day(self) -> str:
         with open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8") as f:
@@ -128,19 +123,19 @@ class Journal:
 
     def create_help_table(self) -> Table:
         table = Table(title="Functions")
-        for col in ("Input", "Action", "Arguments"):
+        for col in ("Command", "Description"):
             table.add_column(col)
-        table.add_row("-h", "help", "")
-        table.add_row("-f", "find", "text")
-        table.add_row("-fp", "find exact match", "text")
-        table.add_row("-s", "stats", "number of top words showed")
-        table.add_row("-c", "count occurrences of text", "text")
-        table.add_row("-r", "random entry", "")
-        table.add_row("-lang", "eng/sk percentage", "")
-        table.add_row("-fol", "create folder structure", "")
-        table.add_row("-fix", "refresh dictionary", "")
-        table.add_row("-clr", "clear console", "")
-        table.add_row("-q", "quit", "")
+        table.add_row("-h", "shows this table")
+        table.add_row("-f <word>", "searches for a word")
+        table.add_row("-fp <word>", "searches for exact matches of a word")
+        table.add_row("-s (number_of_top_words_showed)", "shows the most frequent words")
+        table.add_row("-c <word>", "shows the number of occurrences of a word")
+        table.add_row("-r", "shows a random day")
+        table.add_row("-lang", "percentage of english words")
+        table.add_row("-fol", "creates a folder structure")
+        table.add_row("-fix", "refreshes dictionary")
+        table.add_row("-clr", "clears console")
+        table.add_row("-q", "quit")
         return table
 
     def start(self) -> None:
@@ -176,7 +171,9 @@ class Journal:
             elif action == "-r":
                 self.console.print(self.get_random_day())
             elif action == "-lang":
-                self.percentage_english_words()
+                eng_word_count = self.get_english_word_count()
+                self.console.print(f"All words: {self.get_total_word_count()} | English word count: {eng_word_count}")
+                self.console.print(f"Percentage of english words: {round(eng_word_count * 100 / self.get_total_word_count(), 3)}%")
             elif action == "-fol":
                 self.create_tree_folder_structure()
             elif action == "-h":
