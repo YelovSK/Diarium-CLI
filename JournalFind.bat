@@ -1,1 +1,1 @@
-wt new-tab -p "Powershell" -d "%cd%" python JournalFind.py
+python JournalFind.py
