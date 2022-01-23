@@ -5,6 +5,9 @@ import re
 import shelve
 import shutil
 import time
+import sqlite3
+import json
+from html.entities import name2codepoint
 from io import StringIO
 from collections import Counter
 from rich.console import Console
@@ -12,14 +15,34 @@ from rich.table import Table
 from Finder import Finder
 
 
+with open("config.json") as cfg:
+    config = json.load(cfg)
+
+def decode_entities(text: str) -> str:
+    def unescape(match):
+        code = match.group(1)
+        if code:
+            return chr(int(code, 10))
+        code = match.group(2)
+        if code:
+            return chr(int(code, 16))
+        code = match.group(3)
+        if code in name2codepoint:
+            return chr(name2codepoint[code])
+        return match.group(0)
+    entity_pattern = re.compile(r'&(?:#(\d+)|(?:#x([\da-fA-F]+))|([a-zA-Z]+));')
+    return entity_pattern.sub(unescape, text)
+
 class Journal:
 
     def __init__(self, base_folder: str = os.getcwd()) -> None:
+        self.console = Console()
         self.base = base_folder
         self.path = os.path.join(self.base, "Diarium")
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
         self.files = list(os.listdir(self.path))
         self.years = self.get_years()
-        self.console = Console()
         self.word_count_dict = {}
         self.files_list_path = os.path.join(self.base, "files.txt")
         self.check_file_count_mismatch()
@@ -59,10 +82,25 @@ class Journal:
 
     def create_word_frequency(self) -> None:
         content = StringIO()
+        self.files = list(os.listdir(self.path))
         for file in self.files:
             with open(os.path.join(self.path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
+
+    def update_diarium_files(self) -> None:
+        dbfile = config["diary.db path"]
+        con = sqlite3.connect(dbfile)
+        cur = con.cursor()
+        file_name = "Diarium/Diarium_2017-11-"  # todo get date from sql db
+        if os.path.exists(self.path):
+            shutil.rmtree(self.path)
+        os.makedirs(self.path)
+        for i, row in enumerate(cur.execute("SELECT Text FROM Entries")):
+            text = decode_entities(row[0]).replace("<p>", "").replace("</p>", "\n")
+            with open(f"{file_name}{i}.txt", "w", encoding="utf-8") as f:
+                f.write(text)
+        con.close()
 
     def get_years(self) -> set[int]:
         YEAR_START_IX = 8
@@ -85,6 +123,7 @@ class Journal:
         for file in self.files:
             with open(os.path.join(self.path, file), errors="ignore") as f:
                 file_content = f.read()
+            # filename format -> Diarium_YYYY-MM-DD.txt
             year, month, day = file[file.index("2"):].split("-")
             if month[0] == "0":
                 month = month[1:]
@@ -128,12 +167,13 @@ class Journal:
         table.add_row("-h", "shows this table")
         table.add_row("-f <word>", "searches for a word")
         table.add_row("-fp <word>", "searches for exact matches of a word")
-        table.add_row("-s (number_of_top_words_showed)", "shows the most frequent words")
+        table.add_row("-s (number_of_top_words_showed)", "shows stats")
         table.add_row("-c <word>", "shows the number of occurrences of a word")
         table.add_row("-r", "shows a random day")
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
         table.add_row("-fix", "refreshes dictionary")
+        table.add_row("-update", "updates journal files")
         table.add_row("-clr", "clears console")
         table.add_row("-q", "quit")
         return table
@@ -179,9 +219,17 @@ class Journal:
             elif action == "-h":
                 self.console.print(table)
             elif action == "-fix":
+                prev_word_count = self.get_total_word_count()
                 self.write_dict()
                 self.update_file_count()
-                self.console.print("Done fixing")
+                self.console.print(f"{self.get_total_word_count() - prev_word_count} words added to the dictionary")
+            elif action == "-update":
+                self.update_diarium_files()
+                self.console.print("Created new files")
+                prev_word_count = self.get_total_word_count()
+                self.write_dict()
+                self.update_file_count()
+                self.console.print(f"{self.get_total_word_count() - prev_word_count} words added to the dictionary")
             elif action == "-clr":
                 os.system("cls")
             elif action == "-q":
