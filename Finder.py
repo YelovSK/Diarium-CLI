@@ -1,5 +1,6 @@
 import re
 from io import StringIO
+from rich.progress import track
 
 
 def _split_text_into_sentences(text: str):
@@ -34,7 +35,10 @@ class Finder:
         self.exact_match = exact_match
         self.occurrences = 0
         word = word.lower()
-        return "".join(self._find_word_in_file(file, word) for file in self.files)
+        return "".join(
+            self._find_word_in_file(file, word)
+            for file in track(self.files, description="Searching")
+        )
 
     def _find_word_in_file(self, file: str, word: str) -> str:
         file_output = StringIO()
@@ -43,7 +47,7 @@ class Finder:
         sentences = _split_text_into_sentences(file_content)
         sentences_containing_word = [s for s in sentences if self._is_word_in_sentence(s, word)]
         if not sentences_containing_word:
-            return StringIO().getvalue()
+            return file_output.getvalue()
         file_output.write(_get_date_from_filename(file) + "\n")
         for sentence in sentences_containing_word:
             file_output.write(self._find_word_in_sentence(sentence, word) + "\n")
