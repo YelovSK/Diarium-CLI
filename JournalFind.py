@@ -10,6 +10,7 @@ import json
 from html.entities import name2codepoint
 from io import StringIO
 from collections import Counter
+from typing import List
 from rich.console import Console
 from rich.table import Table
 from Finder import Finder
@@ -34,23 +35,24 @@ class Journal:
 
     def __init__(self) -> None:
         self.console = Console()
-        self.files = list(os.listdir(path))
         self.word_count_dict = {}
-        self.files_list_path = os.path.join(base, "files.txt")
         self.check_file_count_mismatch()
-        files_full_path = [os.path.join(path, file) for file in self.files]
+        files_full_path = [os.path.join(path, file) for file in self.get_file_list()]
         self.finder = Finder(files_full_path)
+        
+    def get_file_list(self) -> List[str]:
+        return list(os.listdir(path))
 
     def check_file_count_mismatch(self) -> None:
-        if not os.path.exists(self.files_list_path):
-            with open(self.files_list_path, "w") as f:
+        if not os.path.exists(files_list_path):
+            with open(files_list_path, "w") as f:
                 f.write("-1")
-        with open(self.files_list_path) as f:
+        with open(files_list_path) as f:
             files_num = int(f.read())
         # files_num -> last checked number of files
-        # len(self.files) -> number of files in the Diarium folder
-        if files_num != len(self.files):
-            self.console.print("File count mismatch, formatting...")
+        # len(self.get_file_list()) -> number of files in the Diarium folder
+        if files_num != len(self.get_file_list()):
+            self.console.print(f"File count mismatch (old: {files_num}, new: {len(self.get_file_list())}), formatting...")
             self.write_dict()
             self.update_file_count()
         else:
@@ -74,8 +76,7 @@ class Journal:
 
     def create_word_frequency(self) -> None:
         content = StringIO()
-        self.files = list(os.listdir(path))
-        for file in self.files:
+        for file in self.get_file_list():
             with open(os.path.join(path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
@@ -97,7 +98,7 @@ class Journal:
     def get_years(self) -> set[int]:
         YEAR_START_IX = 8
         YEAR_END_IX = YEAR_START_IX + 4
-        return {int(file[YEAR_START_IX: YEAR_END_IX]) for file in self.files}
+        return {int(file[YEAR_START_IX: YEAR_END_IX]) for file in self.get_file_list()}
 
     def create_tree_folder_structure(self) -> None:
         self.create_year_and_month_folders()
@@ -112,7 +113,7 @@ class Journal:
                 pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
 
     def create_day_files(self) -> None:
-        for file in self.files:
+        for file in self.get_file_list():
             with open(os.path.join(path, file), errors="ignore") as f:
                 file_content = f.read()
             # filename format -> Diarium_YYYY-MM-DD.txt
@@ -124,8 +125,8 @@ class Journal:
                 day_file.write(file_content)
 
     def update_file_count(self) -> None:
-        with open(self.files_list_path, "w") as f:
-            f.write(str(len(self.files)))
+        with open(files_list_path, "w") as f:
+            f.write(str(len(self.get_file_list())))
 
     def get_most_frequent_words(self, count: int) -> list:
         return sorted(self.word_count_dict.items(), key=lambda item: item[1], reverse=True)[:count]
@@ -148,7 +149,7 @@ class Journal:
         return sum(count for word, count in self.word_count_dict.items() if word in english_words)
 
     def get_random_day(self) -> str:
-        with open(os.path.join(path, random.choice(self.files)), encoding="utf-8") as f:
+        with open(os.path.join(path, random.choice(self.get_file_list())), encoding="utf-8") as f:
             return f.read()
 
     def create_help_table(self) -> Table:
@@ -210,17 +211,23 @@ class Journal:
             elif action == "-h":
                 self.console.print(table)
             elif action == "-fix":
-                prev_word_count = self.get_total_word_count()
+                word_count_before = self.get_total_word_count()
                 self.write_dict()
                 self.update_file_count()
-                self.console.print(f"{self.get_total_word_count() - prev_word_count} words added to the dictionary")
+                word_count_after = self.get_total_word_count()
+                if word_count_after - word_count_before == 0:
+                    self.console.print("No new words found")
+                else:
+                    self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
             elif action == "-update":
+                files_before = self.get_file_list()
                 self.update_diarium_files()
-                self.console.print("Created new files")
-                prev_word_count = self.get_total_word_count()
-                self.write_dict()
-                self.update_file_count()
-                self.console.print(f"{self.get_total_word_count() - prev_word_count} words added to the dictionary")
+                files_after = self.get_file_list()
+                if files_after != files_before:
+                    self.console.print(f"Added {len(files_after) - len(files_before)} day/s")
+                    self.console.print("You should run '-fix' to update the dictionary")
+                else:
+                    self.console.print("No new entries found")
             elif action == "-clr":
                 os.system("cls")
             elif action == "-q":
@@ -234,6 +241,7 @@ if __name__ == "__main__":
         config = json.load(cfg)
     base = os.getcwd()
     path = os.path.join(base, "Diarium")
+    files_list_path = os.path.join(base, "files.txt")
     if not os.path.exists(path):
         os.makedirs(path)
     Journal().start()
