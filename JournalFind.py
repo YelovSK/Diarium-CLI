@@ -15,9 +15,6 @@ from rich.table import Table
 from Finder import Finder
 
 
-with open("config.json") as cfg:
-    config = json.load(cfg)
-
 def decode_entities(text: str) -> str:
     def unescape(match):
         code = match.group(1)
@@ -35,18 +32,13 @@ def decode_entities(text: str) -> str:
 
 class Journal:
 
-    def __init__(self, base_folder: str = os.getcwd()) -> None:
+    def __init__(self) -> None:
         self.console = Console()
-        self.base = base_folder
-        self.path = os.path.join(self.base, "Diarium")
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        self.files = list(os.listdir(self.path))
-        self.years = self.get_years()
+        self.files = list(os.listdir(path))
         self.word_count_dict = {}
-        self.files_list_path = os.path.join(self.base, "files.txt")
+        self.files_list_path = os.path.join(base, "files.txt")
         self.check_file_count_mismatch()
-        files_full_path = [os.path.join(self.path, file) for file in self.files]
+        files_full_path = [os.path.join(path, file) for file in self.files]
         self.finder = Finder(files_full_path)
 
     def check_file_count_mismatch(self) -> None:
@@ -71,20 +63,20 @@ class Journal:
             self.write_dict()
 
     def read_dict(self) -> None:
-        with shelve.open(os.path.join(self.base, "shelve", "journal")) as jour:
+        with shelve.open(os.path.join(base, "shelve", "journal")) as jour:
             self.word_count_dict = jour["freq"]
 
     def write_dict(self) -> None:
         self.create_word_frequency()
-        pathlib.Path(os.path.join(self.base, "shelve")).mkdir(parents=True, exist_ok=True)
-        with shelve.open(os.path.join(self.base, "shelve", "journal")) as jour:
+        pathlib.Path(os.path.join(base, "shelve")).mkdir(parents=True, exist_ok=True)
+        with shelve.open(os.path.join(base, "shelve", "journal")) as jour:
             jour["freq"] = self.word_count_dict
 
     def create_word_frequency(self) -> None:
         content = StringIO()
-        self.files = list(os.listdir(self.path))
+        self.files = list(os.listdir(path))
         for file in self.files:
-            with open(os.path.join(self.path, file), encoding="utf-8") as f:
+            with open(os.path.join(path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
 
@@ -93,9 +85,9 @@ class Journal:
         con = sqlite3.connect(dbfile)
         cur = con.cursor()
         file_name = "Diarium/Diarium_2017-11-"  # todo get date from sql db
-        if os.path.exists(self.path):
-            shutil.rmtree(self.path)
-        os.makedirs(self.path)
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.makedirs(path)
         for i, row in enumerate(cur.execute("SELECT Text FROM Entries")):
             text = decode_entities(row[0]).replace("<p>", "").replace("</p>", "\n")
             with open(f"{file_name}{i}.txt", "w", encoding="utf-8") as f:
@@ -113,22 +105,21 @@ class Journal:
         self.update_file_count()
 
     def create_year_and_month_folders(self) -> None:
-        for year in [str(y) for y in self.years]:
-            if os.path.exists(os.path.join(self.base, year)):
-                shutil.rmtree(os.path.join(self.base, year))
+        for year in [str(y) for y in self.get_years()]:
+            if os.path.exists(os.path.join(base, year)):
+                shutil.rmtree(os.path.join(base, year))
             for month in [str(m) for m in range(1, 12 + 1)]:
                 pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
 
     def create_day_files(self) -> None:
         for file in self.files:
-            with open(os.path.join(self.path, file), errors="ignore") as f:
+            with open(os.path.join(path, file), errors="ignore") as f:
                 file_content = f.read()
             # filename format -> Diarium_YYYY-MM-DD.txt
-            year, month, day = file[file.index("2"):].split("-")
-            if month[0] == "0":
-                month = month[1:]
-            if day[0] == "0":
-                day = day[1:]
+            year, month, day = file.split("_")[1].split("-")
+            # remove leading zeros
+            month = month.lstrip("0")
+            day = day.lstrip("0")
             with open(os.path.join(year, month, day), "w") as day_file:
                 day_file.write(file_content)
 
@@ -157,7 +148,7 @@ class Journal:
         return sum(count for word, count in self.word_count_dict.items() if word in english_words)
 
     def get_random_day(self) -> str:
-        with open(os.path.join(self.path, random.choice(self.files)), encoding="utf-8") as f:
+        with open(os.path.join(path, random.choice(self.files)), encoding="utf-8") as f:
             return f.read()
 
     def create_help_table(self) -> Table:
@@ -235,7 +226,14 @@ class Journal:
             elif action == "-q":
                 break
             else:
-                self.console.print("Command not recognized. Type '-h-' for help.")
+                self.console.print("Command not recognized. Type '-h' for help.")
 
 
-Journal().start()
+if __name__ == "__main__":
+    with open("config.json") as cfg:
+        config = json.load(cfg)
+    base = os.getcwd()
+    path = os.path.join(base, "Diarium")
+    if not os.path.exists(path):
+        os.makedirs(path)
+    Journal().start()
