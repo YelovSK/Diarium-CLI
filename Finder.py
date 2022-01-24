@@ -1,18 +1,6 @@
-import re
 from io import StringIO
 from rich.progress import track
-
-
-def _split_text_into_sentences(text: str):
-    split_regex = r"(?<=[.!?\n])\s+"
-    return [sentence.strip() for sentence in re.split(split_regex, text)]
-
-def _get_date_from_filename(filename: str) -> str:
-    file_date_begin = filename.index("2")
-    file_date_end = filename.index(".txt")
-    year, month, day = filename[file_date_begin: file_date_end].split("-")
-    date_style = "blue"
-    return f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]"
+from helper import *
 
 class Finder:
 
@@ -44,11 +32,11 @@ class Finder:
         file_output = StringIO()
         with open(file, encoding="utf-8") as f:
             file_content = f.read()
-        sentences = _split_text_into_sentences(file_content)
+        sentences = split_text_into_sentences(file_content)
         sentences_containing_word = [s for s in sentences if self._is_word_in_sentence(s, word)]
         if not sentences_containing_word:
             return file_output.getvalue()
-        file_output.write(_get_date_from_filename(file) + "\n")
+        file_output.write(get_date_from_filename(file) + "\n")
         for sentence in sentences_containing_word:
             file_output.write(self._find_word_in_sentence(sentence, word) + "\n")
         file_output.write("\n")

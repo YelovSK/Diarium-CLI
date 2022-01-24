@@ -1,1 +1,1 @@
-python JournalFind.py
+python main.py
