@@ -7,12 +7,13 @@ import shutil
 import time
 import sqlite3
 import json
+import helper as hp
 from io import StringIO
 from collections import Counter
 from typing import List, Set
 from rich.console import Console
 from rich.table import Table
-from helper import *
+from rich.progress import track
 from finder import Finder
 
 class Journal:
@@ -60,21 +61,22 @@ class Journal:
 
     def create_word_frequency(self) -> None:
         content = StringIO()
-        for file in self.get_file_list():
+        for file in track(self.get_file_list(), description="Reading files"):
             with open(os.path.join(path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
 
     def update_diarium_files(self) -> None:
         dbfile = config["diary.db path"]
-        con = sqlite3.connect(dbfile)
-        cur = con.cursor()
         file_name = "Diarium/Diarium_2017-11-"  # todo get date from sql db
         if os.path.exists(path):
             shutil.rmtree(path)
         os.makedirs(path)
-        for i, row in enumerate(cur.execute("SELECT Text FROM Entries")):
-            text = decode_entities(row[0]).replace("<p>", "").replace("</p>", "\n")
+        con = sqlite3.connect(dbfile)
+        cur = con.cursor()
+        entries_text = [hp.decode_entities(row[0]).replace("<p>", "").replace("</p>", "\n")
+                        for row in cur.execute("SELECT Text FROM Entries")]
+        for i, text in enumerate(track(entries_text, description="Writing files")):
             with open(f"{file_name}{i}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
         con.close()
@@ -136,7 +138,7 @@ class Journal:
     def get_random_day(self) -> str:
         random_file = random.choice(self.get_file_list())
         with open(os.path.join(path, random_file), encoding="utf-8") as f:
-            return get_date_from_filename(random_file) + "\n" + f.read()
+            return hp.get_date_from_filename(random_file) + "\n" + f.read()
 
     def create_help_table(self) -> Table:
         table = Table(title="Functions")

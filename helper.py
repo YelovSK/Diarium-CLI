@@ -1,5 +1,6 @@
 import re
 from html.entities import name2codepoint
+from typing import List
 
 
 def get_date_from_filename(filename: str) -> str:
@@ -9,7 +10,7 @@ def get_date_from_filename(filename: str) -> str:
     date_style = "blue"
     return f"[{date_style}]Date: {day}.{month}.{year}[/{date_style}]"
 
-def split_text_into_sentences(text: str):
+def split_text_into_sentences(text: str) -> List[str]:
     split_regex = r"(?<=[.!?\n])\s+"
     return [sentence.strip() for sentence in re.split(split_regex, text)]
 

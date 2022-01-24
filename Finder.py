@@ -1,6 +1,6 @@
+import helper as hp
 from io import StringIO
 from rich.progress import track
-from helper import *
 
 class Finder:
 
@@ -32,11 +32,11 @@ class Finder:
         file_output = StringIO()
         with open(file, encoding="utf-8") as f:
             file_content = f.read()
-        sentences = split_text_into_sentences(file_content)
+        sentences = hp.split_text_into_sentences(file_content)
         sentences_containing_word = [s for s in sentences if self._is_word_in_sentence(s, word)]
         if not sentences_containing_word:
             return file_output.getvalue()
-        file_output.write(get_date_from_filename(file) + "\n")
+        file_output.write(hp.get_date_from_filename(file) + "\n")
         for sentence in sentences_containing_word:
             file_output.write(self._find_word_in_sentence(sentence, word) + "\n")
         file_output.write("\n")
