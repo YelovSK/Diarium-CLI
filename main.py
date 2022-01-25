@@ -146,6 +146,15 @@ class Journal:
         random_file = random.choice(hp.get_file_list())
         with open(os.path.join(path, random_file), encoding="utf-8") as f:
             return hp.get_date_from_filename(random_file) + "\n" + f.read()
+        
+    def get_longest_day(self) -> str:
+        words_in_file = {}  # file: word_count
+        for file in hp.get_file_list(full_path=True):
+            with open(file, encoding="utf-8") as f:
+                words_in_file[file] = len(f.read().split())
+        file, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
+        with open(file, encoding="utf-8") as f:
+            return f"Word count: {word_count}\n\n{f.read()}"
 
     def create_help_table(self) -> Table:
         table = Table(title="Functions")
@@ -158,6 +167,7 @@ class Journal:
         table.add_row("-c <word>", "shows the number of occurrences of a word")
         table.add_row("-d <dd.mm.yyyy>", "shows a specific day")
         table.add_row("-r", "shows a random day")
+        table.add_row("-l", "shows the longest day")
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
         table.add_row("-fix", "refreshes dictionary")
@@ -204,6 +214,8 @@ class Journal:
                     self.console.print(file_content)
             elif action == "-r":
                 self.console.print(self.get_random_day())
+            elif action == "-l":
+                self.console.print(self.get_longest_day())
             elif action == "-lang":
                 eng_word_count = self.get_english_word_count()
                 self.console.print(f"All words: {self.get_total_word_count()} | English word count: {eng_word_count}")

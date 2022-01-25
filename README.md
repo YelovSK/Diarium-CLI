@@ -19,6 +19,7 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 | -c `<word>` | shows the number of occurrences of a word
 | -d `<dd.mm.yy>` | shows a specific day
 | -r | shows a random day
+| -l | shows the longest day
 | -lang | percentage of english words
 | -fol | creates a folder structure
 | -fix | refreshes dictionary
