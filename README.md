@@ -1,4 +1,5 @@
 # Diarium-CLI
+Command-line interface providing random functions for the journaling app [Diarium](https://timopartl.com/).
 ## Configuration
 Find the path of your `diary.db` file created by Diarium and put it in `config.json`.
 
@@ -22,7 +23,7 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 | -l | shows the longest day
 | -lang | percentage of english words
 | -fol | creates a folder structure
-| -fix | refreshes dictionary
 | -update | updates journal files
+| -fix | refreshes dictionary
 | -clr | clears console
 | -q | quit
