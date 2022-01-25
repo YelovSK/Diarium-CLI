@@ -22,11 +22,7 @@ class Journal:
         self.console = Console()
         self.word_count_dict = {}
         self.check_file_count_mismatch()
-        files_full_path = [os.path.join(path, file) for file in self.get_file_list()]
-        self.finder = Finder(files_full_path)
-        
-    def get_file_list(self) -> List[str]:
-        return list(os.listdir(path))
+        self.finder = Finder()
 
     def check_file_count_mismatch(self) -> None:
         if not os.path.exists(files_list_path):
@@ -35,9 +31,9 @@ class Journal:
         with open(files_list_path) as f:
             files_num = int(f.read())
         # files_num -> last checked number of files
-        # len(self.get_file_list()) -> number of files in the Diarium folder
-        if files_num != len(self.get_file_list()):
-            self.console.print(f"File count mismatch (old: {files_num}, new: {len(self.get_file_list())}), formatting...")
+        # len(hp.get_file_list()) -> number of files in the Diarium folder
+        if files_num != len(hp.get_file_list()):
+            self.console.print(f"File count mismatch (old: {files_num}, new: {len(hp.get_file_list())}), formatting...")
             self.write_dict()
             self.update_file_count()
         else:
@@ -61,23 +57,22 @@ class Journal:
 
     def create_word_frequency(self) -> None:
         content = StringIO()
-        for file in track(self.get_file_list(), description="Reading files"):
+        for file in track(hp.get_file_list(), description="Reading files"):
             with open(os.path.join(path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
 
     def update_diarium_files(self) -> None:
-        dbfile = config["diary.db path"]
-        file_name = "Diarium/Diarium_2017-11-"  # todo get date from sql db
         if os.path.exists(path):
             shutil.rmtree(path)
         os.makedirs(path)
+        dbfile = config["diary.db path"]
         con = sqlite3.connect(dbfile)
-        cur = con.cursor()
-        entries_text = [hp.decode_entities(row[0]).replace("<p>", "").replace("</p>", "\n")
-                        for row in cur.execute("SELECT Text FROM Entries")]
-        for i, text in enumerate(track(entries_text, description="Writing files")):
-            with open(f"{file_name}{i}.txt", "w", encoding="utf-8") as f:
+        entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
+        for text_raw, ticks in track(entries, description="Writing files"):
+            text = hp.decode_entities(text_raw).replace("<p>", "").replace("</p>", "\n")
+            date = hp.get_date_from_tick(int(ticks))
+            with open(f"Diarium/Diarium_{date}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
         con.close()
 
@@ -85,7 +80,7 @@ class Journal:
         # filename format -> Diarium_YYYY-MM-DD.txt
         YEAR_START_IX = 8
         YEAR_END_IX = YEAR_START_IX + 4
-        return {int(file[YEAR_START_IX: YEAR_END_IX]) for file in self.get_file_list()}
+        return {int(file[YEAR_START_IX: YEAR_END_IX]) for file in hp.get_file_list()}
 
     def create_tree_folder_structure(self) -> None:
         self.create_year_and_month_folders()
@@ -100,7 +95,7 @@ class Journal:
                 pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
 
     def create_day_files(self) -> None:
-        for file in self.get_file_list():
+        for file in hp.get_file_list():
             with open(os.path.join(path, file), errors="ignore") as f:
                 file_content = f.read()
             # filename format -> Diarium_YYYY-MM-DD.txt
@@ -113,7 +108,7 @@ class Journal:
 
     def update_file_count(self) -> None:
         with open(files_list_path, "w") as f:
-            f.write(str(len(self.get_file_list())))
+            f.write(str(len(hp.get_file_list())))
 
     def get_most_frequent_words(self, count: int) -> list:
         return sorted(self.word_count_dict.items(), key=lambda item: item[1], reverse=True)[:count]
@@ -136,7 +131,7 @@ class Journal:
         return sum(count for word, count in self.word_count_dict.items() if word in english_words)
 
     def get_random_day(self) -> str:
-        random_file = random.choice(self.get_file_list())
+        random_file = random.choice(hp.get_file_list())
         with open(os.path.join(path, random_file), encoding="utf-8") as f:
             return hp.get_date_from_filename(random_file) + "\n" + f.read()
 
@@ -208,9 +203,9 @@ class Journal:
                 else:
                     self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
             elif action == "-update":
-                files_before = self.get_file_list()
+                files_before = hp.get_file_list()
                 self.update_diarium_files()
-                files_after = self.get_file_list()
+                files_after = hp.get_file_list()
                 if files_after != files_before:
                     self.console.print(f"Added {len(files_after) - len(files_before)} day/s")
                     self.console.print("You should run '-fix' to update the dictionary")

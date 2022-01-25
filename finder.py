@@ -4,8 +4,7 @@ from rich.progress import track
 
 class Finder:
 
-    def __init__(self, files: list[str]):
-        self.files = files
+    def __init__(self):
         self.occurrences = 0
         self.exact_match = False
 
@@ -25,7 +24,7 @@ class Finder:
         word = word.lower()
         return "".join(
             self._find_word_in_file(file, word)
-            for file in track(self.files, description="Searching")
+            for file in track(hp.get_file_list(full_path=True), description="Searching")
         )
 
     def _find_word_in_file(self, file: str, word: str) -> str:
