@@ -21,23 +21,9 @@ class Journal:
     def __init__(self) -> None:
         self.console = Console()
         self.word_count_dict = {}
-        self.check_file_count_mismatch()
+        self.init_dict()
+        self.check_for_new_files()
         self.finder = Finder()
-
-    def check_file_count_mismatch(self) -> None:
-        if not os.path.exists(files_list_path):
-            with open(files_list_path, "w") as f:
-                f.write("-1")
-        with open(files_list_path) as f:
-            files_num = int(f.read())
-        # files_num -> last checked number of files
-        # len(hp.get_file_list()) -> number of files in the Diarium folder
-        if files_num != len(hp.get_file_list()):
-            self.console.print(f"File count mismatch (old: {files_num}, new: {len(hp.get_file_list())}), formatting...")
-            self.write_dict()
-            self.update_file_count()
-        else:
-            self.init_dict()
 
     def init_dict(self) -> None:
         try:
@@ -61,20 +47,30 @@ class Journal:
             with open(os.path.join(path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
+        
+    def check_for_new_files(self):
+        curr_files = len(hp.get_file_list())
+        all_files = len(self.get_entries_from_db())
+        if all_files > curr_files:
+            self.console.print(f"{all_files - curr_files} new files found, you can type '-update'")
 
     def update_diarium_files(self) -> None:
         if os.path.exists(path):
             shutil.rmtree(path)
         os.makedirs(path)
-        dbfile = config["diary.db path"]
-        con = sqlite3.connect(dbfile)
-        entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
+        entries = self.get_entries_from_db()
         for text_raw, ticks in track(entries, description="Writing files"):
             text = hp.decode_entities(text_raw).replace("<p>", "").replace("</p>", "\n")
             date = hp.get_date_from_tick(int(ticks))
             with open(f"Diarium/Diarium_{date}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
+        
+    def get_entries_from_db(self) -> List[str]:
+        dbfile = config["diary.db path"]
+        con = sqlite3.connect(dbfile)
+        entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
         con.close()
+        return entries
 
     def get_years(self) -> Set[int]:
         # filename format -> Diarium_YYYY-MM-DD.txt
@@ -85,7 +81,6 @@ class Journal:
     def create_tree_folder_structure(self) -> None:
         self.create_year_and_month_folders()
         self.create_day_files()
-        self.update_file_count()
 
     def create_year_and_month_folders(self) -> None:
         for year in [str(y) for y in self.get_years()]:
@@ -105,10 +100,6 @@ class Journal:
             day = day.lstrip("0")
             with open(os.path.join(year, month, day), "w") as day_file:
                 day_file.write(file_content)
-
-    def update_file_count(self) -> None:
-        with open(files_list_path, "w") as f:
-            f.write(str(len(hp.get_file_list())))
 
     def get_most_frequent_words(self, count: int) -> list:
         return sorted(self.word_count_dict.items(), key=lambda item: item[1], reverse=True)[:count]
@@ -170,8 +161,8 @@ class Journal:
         table.add_row("-l", "shows the longest day")
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
-        table.add_row("-fix", "refreshes dictionary")
-        table.add_row("-update", "updates journal files")
+        table.add_row("-update", "updates journal files and dictionary")
+        table.add_row("-fix", "updates dictionary")
         table.add_row("-clr", "clears console")
         table.add_row("-q", "quit")
         return table
@@ -224,24 +215,30 @@ class Journal:
                 self.create_tree_folder_structure()
             elif action == "-h":
                 self.console.print(table)
-            elif action == "-fix":
-                word_count_before = self.get_total_word_count()
-                self.write_dict()
-                self.update_file_count()
-                word_count_after = self.get_total_word_count()
-                if word_count_after - word_count_before == 0:
-                    self.console.print("No new words found")
-                else:
-                    self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
             elif action == "-update":
                 files_before = hp.get_file_list()
                 self.update_diarium_files()
                 files_after = hp.get_file_list()
                 if files_after != files_before:
                     self.console.print(f"Added {len(files_after) - len(files_before)} day/s")
-                    self.console.print("You should run '-fix' to update the dictionary")
+                    self.console.print("Proceeding to update dictionary")
+                    word_count_before = self.get_total_word_count()
+                    self.write_dict()
+                    word_count_after = self.get_total_word_count()
+                    if word_count_after - word_count_before == 0:
+                        self.console.print("No new words found")
+                    else:
+                        self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
                 else:
                     self.console.print("No new entries found")
+            elif action == "-fix":
+                word_count_before = self.get_total_word_count()
+                self.write_dict()
+                word_count_after = self.get_total_word_count()
+                if word_count_after - word_count_before == 0:
+                    self.console.print("No new words found")
+                else:
+                    self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
             elif action == "-clr":
                 os.system("cls")
             elif action == "-q":
