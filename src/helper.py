@@ -37,7 +37,7 @@ def get_date_from_tick(ticks: int) -> str:
     return date.strftime(r"%Y-%m-%d")
 
 def get_file_list(full_path=False) -> List[str]:
-    path = os.path.join(os.getcwd(), "Diarium")
+    path = os.path.join(os.getcwd(), "entries")
     if full_path:
         return [os.path.join(path, file) for file in os.listdir(path)]
     else:

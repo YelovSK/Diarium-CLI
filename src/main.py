@@ -32,19 +32,19 @@ class Journal:
             self.write_dict()
 
     def read_dict(self) -> None:
-        with shelve.open(os.path.join(base, "shelve", "journal")) as jour:
+        with shelve.open(os.path.join(base_path, "shelve", "journal")) as jour:
             self.word_count_dict = jour["freq"]
 
     def write_dict(self) -> None:
         self.create_word_frequency()
-        pathlib.Path(os.path.join(base, "shelve")).mkdir(parents=True, exist_ok=True)
-        with shelve.open(os.path.join(base, "shelve", "journal")) as jour:
+        pathlib.Path(os.path.join(base_path, "shelve")).mkdir(parents=True, exist_ok=True)
+        with shelve.open(os.path.join(base_path, "shelve", "journal")) as jour:
             jour["freq"] = self.word_count_dict
 
     def create_word_frequency(self) -> None:
         content = StringIO()
         for file in track(hp.get_file_list(), description="Reading files"):
-            with open(os.path.join(path, file), encoding="utf-8") as f:
+            with open(os.path.join(entries_path, file), encoding="utf-8") as f:
                 content.write(f.read().lower())
         self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
         
@@ -55,14 +55,14 @@ class Journal:
             self.console.print(f"{all_files - curr_files} new files found, you can type '-update'")
 
     def update_diarium_files(self) -> None:
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.makedirs(path)
+        if os.path.exists(entries_path):
+            shutil.rmtree(entries_path)
+        os.makedirs(entries_path)
         entries = self.get_entries_from_db()
         for text_raw, ticks in track(entries, description="Writing files"):
             text = hp.decode_entities(text_raw).replace("<p>", "").replace("</p>", "\n")
             date = hp.get_date_from_tick(int(ticks))
-            with open(f"Diarium/Diarium_{date}.txt", "w", encoding="utf-8") as f:
+            with open(f"{entries_path}/Diarium_{date}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
         
     def get_entries_from_db(self) -> List[str]:
@@ -84,14 +84,14 @@ class Journal:
 
     def create_year_and_month_folders(self) -> None:
         for year in [str(y) for y in self.get_years()]:
-            if os.path.exists(os.path.join(base, year)):
-                shutil.rmtree(os.path.join(base, year))
+            if os.path.exists(os.path.join(base_path, year)):
+                shutil.rmtree(os.path.join(base_path, year))
             for month in [str(m) for m in range(1, 12 + 1)]:
                 pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
 
     def create_day_files(self) -> None:
         for file in hp.get_file_list():
-            with open(os.path.join(path, file), errors="ignore") as f:
+            with open(os.path.join(entries_path, file), errors="ignore") as f:
                 file_content = f.read()
             # filename format -> Diarium_YYYY-MM-DD.txt
             year, month, day = file.split("_")[1].split("-")
@@ -127,7 +127,7 @@ class Journal:
             d, m, y = date.split(".")
         except ValueError:
             return None
-        file_path = f"Diarium/Diarium_{y}-{m}-{d}.txt"
+        file_path = f"{entries_path}/Diarium_{y}-{m}-{d}.txt"
         if not os.path.exists(file_path):
             return None
         with open(file_path, encoding="utf-8") as f:
@@ -135,7 +135,7 @@ class Journal:
 
     def get_random_day(self) -> str:
         random_file = random.choice(hp.get_file_list())
-        with open(os.path.join(path, random_file), encoding="utf-8") as f:
+        with open(os.path.join(entries_path, random_file), encoding="utf-8") as f:
             return hp.get_date_from_filename(random_file) + "\n" + f.read()
         
     def get_longest_day(self) -> str:
@@ -220,7 +220,7 @@ class Journal:
                 self.update_diarium_files()
                 files_after = hp.get_file_list()
                 if files_after != files_before:
-                    self.console.print(f"Added {len(files_after) - len(files_before)} day/s")
+                    self.console.print(f"Added {len(files_after) - len(files_before)} days")
                     self.console.print("Proceeding to update dictionary")
                     word_count_before = self.get_total_word_count()
                     self.write_dict()
@@ -228,7 +228,7 @@ class Journal:
                     if word_count_after - word_count_before == 0:
                         self.console.print("No new words found")
                     else:
-                        self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
+                        self.console.print(f"Added {word_count_after - word_count_before} words to the dictionary")
                 else:
                     self.console.print("No new entries found")
             elif action == "-fix":
@@ -250,9 +250,8 @@ class Journal:
 if __name__ == "__main__":
     with open("config.json") as cfg:
         config = json.load(cfg)
-    base = os.getcwd()
-    path = os.path.join(base, "Diarium")
-    files_list_path = os.path.join(base, "files.txt")
-    if not os.path.exists(path):
-        os.makedirs(path)
+    base_path = os.getcwd()
+    entries_path = os.path.join(base_path, "entries")
+    if not os.path.exists(entries_path):
+        os.makedirs(entries_path)
     Journal().start()
