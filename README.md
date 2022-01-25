@@ -13,8 +13,8 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 | Command | Description |
 | :------: | :-------------------: |
 | -h | shows this table
-| -f `<word>` | searched for a word
-| -fp `<word>` | searched for exact matches of a word
+| -f `<word>` | searches for a word
+| -fp `<word>` | searches for exact matches of a word
 | -s `[number_of_top_words_showed]` | shows stats
 | -c `<word>` | shows the number of occurrences of a word
 | -d `<dd.mm.yy>` | shows a specific day
