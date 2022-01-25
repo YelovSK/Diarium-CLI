@@ -129,6 +129,18 @@ class Journal:
             for line in f:
                 english_words.add(line.strip())
         return sum(count for word, count in self.word_count_dict.items() if word in english_words)
+    
+    def get_day_from_date(self, date: str) -> str:
+        # date should be in the format DD.MM.YYYY
+        try:
+            d, m, y = date.split(".")
+        except ValueError:
+            return None
+        file_path = f"Diarium/Diarium_{y}-{m}-{d}.txt"
+        if not os.path.exists(file_path):
+            return None
+        with open(file_path, encoding="utf-8") as f:
+            return f.read()
 
     def get_random_day(self) -> str:
         random_file = random.choice(hp.get_file_list())
@@ -144,6 +156,7 @@ class Journal:
         table.add_row("-fp <word>", "searches for exact matches of a word")
         table.add_row("-s (number_of_top_words_showed)", "shows stats")
         table.add_row("-c <word>", "shows the number of occurrences of a word")
+        table.add_row("-d <dd.mm.yyyy>", "shows a specific day")
         table.add_row("-r", "shows a random day")
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
@@ -183,6 +196,12 @@ class Journal:
                 self.console.print(f"The exact match of word '{val}' was found {self.get_word_occurrences(val)} times")
                 occurrences = self.finder.find_and_get_occurrences(word=val, exact_match=False)
                 self.console.print(f"The number of all occurrences (incl. variations) is {occurrences}")
+            elif action == "-d":
+                file_content = self.get_day_from_date(date=val)
+                if file_content is None:
+                    self.console.print("File not found")
+                else:
+                    self.console.print(file_content)
             elif action == "-r":
                 self.console.print(self.get_random_day())
             elif action == "-lang":
