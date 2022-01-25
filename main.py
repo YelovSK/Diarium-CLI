@@ -145,7 +145,7 @@ class Journal:
                 words_in_file[file] = len(f.read().split())
         file, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
         with open(file, encoding="utf-8") as f:
-            return f"Word count: {word_count}\n\n{f.read()}"
+            return f"{hp.get_date_from_filename(file)}\nWord count: {word_count}\n\n{f.read()}"
 
     def create_help_table(self) -> Table:
         table = Table(title="Functions")

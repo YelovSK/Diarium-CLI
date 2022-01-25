@@ -6,6 +6,7 @@ from typing import List
 
 
 def get_date_from_filename(filename: str) -> str:
+    filename = filename.split("/")[-1]
     file_date_begin = filename.index("2")
     file_date_end = filename.index(".txt")
     year, month, day = filename[file_date_begin: file_date_end].split("-")
