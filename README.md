@@ -8,7 +8,7 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 ## Launch
 `pip install -r requirements.txt` to install dependencies
 
-`python JournalFind.py` from the root folder
+`python main.py` from the root folder
 
 ## Usage
 | Command | Description |
