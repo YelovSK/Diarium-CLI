@@ -18,7 +18,7 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 | -fp `<word>` | searches for exact matches of a word
 | -s `[number_of_top_words_showed]` | shows stats
 | -c `<word>` | shows the number of occurrences of a word
-| -d `<dd-mm-yy>` | shows a specific day
+| -d `<dd.mm.yyyy>` | shows a specific day
 | -r | shows a random day
 | -l | shows the longest day
 | -lang | percentage of english words

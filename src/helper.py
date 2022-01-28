@@ -22,4 +22,4 @@ def decode_entities(text: str) -> str:
 
 def get_date_from_tick(ticks: int) -> str:
     date = datetime.datetime(1, 1, 1) + datetime.timedelta(microseconds=ticks // 10)
-    return date.strftime(r"%d-%m-%Y")
+    return date.strftime(r"%d.%m.%Y")
