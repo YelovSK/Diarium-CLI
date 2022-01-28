@@ -24,7 +24,6 @@ class Journal:
         self.entries_map = {}
         self.init_dict()
         self.check_for_new_files()
-        self.finder = Finder()
 
     def init_dict(self) -> None:
         try:
@@ -133,7 +132,7 @@ class Journal:
 
     def find_word(self, word: str, exact_match):
         start = time.time()
-        output, occurrences = self.finder.find_and_get_output(word, exact_match)
+        output, occurrences = Finder().find_and_get_output(word, exact_match)
         took_time = round(time.time() - start, 2)
         self.console.print(output)
         self.console.print(f"The word {word} was found {occurrences} times",
