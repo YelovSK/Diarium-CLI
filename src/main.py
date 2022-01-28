@@ -8,7 +8,6 @@ import time
 import sqlite3
 import json
 import helper as hp
-from io import StringIO
 from collections import Counter
 from typing import List, Set
 from rich.console import Console
@@ -16,11 +15,13 @@ from rich.table import Table
 from rich.progress import track
 from finder import Finder
 
+
 class Journal:
 
     def __init__(self) -> None:
         self.console = Console()
-        self.word_count_dict = {}
+        self.word_count_map = {}
+        self.entries_map = {}
         self.init_dict()
         self.check_for_new_files()
         self.finder = Finder()
@@ -32,51 +33,46 @@ class Journal:
             self.write_dict()
 
     def read_dict(self) -> None:
-        with shelve.open(os.path.join(base_path, "shelve", "journal")) as jour:
-            self.word_count_dict = jour["freq"]
+        with shelve.open(os.path.join("shelve", "journal")) as jour:
+            self.word_count_map = jour["freq"]
+            self.entries_map = jour["entries"]
 
     def write_dict(self) -> None:
         self.create_word_frequency()
-        pathlib.Path(os.path.join(base_path, "shelve")).mkdir(parents=True, exist_ok=True)
-        with shelve.open(os.path.join(base_path, "shelve", "journal")) as jour:
-            jour["freq"] = self.word_count_dict
+        self.update_entries_from_db()
+        pathlib.Path(os.path.join("shelve")).mkdir(parents=True, exist_ok=True)
+        with shelve.open(os.path.join("shelve", "journal")) as jour:
+            jour["freq"] = self.word_count_map
+            jour["entries"] = self.entries_map
 
     def create_word_frequency(self) -> None:
-        content = StringIO()
-        for file in track(hp.get_file_list(), description="Reading files"):
-            with open(os.path.join(entries_path, file), encoding="utf-8") as f:
-                content.write(f.read().lower())
-        self.word_count_dict = Counter(re.findall(r"\w+", content.getvalue()))
-        
-    def check_for_new_files(self):
-        curr_files = len(hp.get_file_list())
-        all_files = len(self.get_entries_from_db())
-        if all_files > curr_files:
-            self.console.print(f"{all_files - curr_files} new files found, you can type '-update'")
+        content = "".join(self.entries_map.values()).lower()
+        self.word_count_map = Counter(re.findall(r"\w+", content))
 
-    def update_diarium_files(self) -> None:
-        if os.path.exists(entries_path):
-            shutil.rmtree(entries_path)
-        os.makedirs(entries_path)
+    def check_for_new_files(self):
+        curr_entries = len(self.entries_map)
+        all_entries = len(self.get_entries_from_db())
+        if all_entries > curr_entries:
+            self.console.print(f"{all_entries - curr_entries} new entries found, you can type '-update'")
+
+    def update_entries_from_db(self) -> None:
+        self.entries_map = {}
         entries = self.get_entries_from_db()
-        for text_raw, ticks in track(entries, description="Writing files"):
+        for text_raw, ticks in track(entries, description="Updating entries map"):
             text = hp.decode_entities(text_raw).replace("<p>", "").replace("</p>", "\n")
             date = hp.get_date_from_tick(int(ticks))
-            with open(f"{entries_path}/Diarium_{date}.txt", "w", encoding="utf-8") as f:
-                f.write(text)
-        
-    def get_entries_from_db(self) -> List[str]:
-        dbfile = config["diary.db path"]
-        con = sqlite3.connect(dbfile)
+            self.entries_map[date] = text
+
+    @staticmethod
+    def get_entries_from_db() -> List[str]:
+        database_path = config["diary.db path"]
+        con = sqlite3.connect(database_path)
         entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
         con.close()
         return entries
 
     def get_years(self) -> Set[int]:
-        # filename format -> Diarium_YYYY-MM-DD.txt
-        YEAR_START_IX = 8
-        YEAR_END_IX = YEAR_START_IX + 4
-        return {int(file[YEAR_START_IX: YEAR_END_IX]) for file in hp.get_file_list()}
+        return {int(date.split("-")[-1]) for date in self.entries_map.keys()}
 
     def create_tree_folder_structure(self) -> None:
         self.create_year_and_month_folders()
@@ -84,34 +80,30 @@ class Journal:
 
     def create_year_and_month_folders(self) -> None:
         for year in [str(y) for y in self.get_years()]:
-            if os.path.exists(os.path.join(base_path, year)):
-                shutil.rmtree(os.path.join(base_path, year))
+            if os.path.exists(os.path.join("entries", year)):
+                shutil.rmtree(os.path.join("entries", year))
             for month in [str(m) for m in range(1, 12 + 1)]:
-                pathlib.Path(os.path.join(year, month)).mkdir(parents=True, exist_ok=True)
+                pathlib.Path(os.path.join("entries", year, month)).mkdir(parents=True, exist_ok=True)
 
     def create_day_files(self) -> None:
-        for file in hp.get_file_list():
-            with open(os.path.join(entries_path, file), errors="ignore") as f:
-                file_content = f.read()
-            # filename format -> Diarium_YYYY-MM-DD.txt
-            year, month, day = file.split("_")[1].split("-")
-            # remove leading zeros
-            month = month.lstrip("0")
+        for date, text in self.entries_map.items():
+            day, month, year = date.split("-")
             day = day.lstrip("0")
-            with open(os.path.join(year, month, day), "w") as day_file:
-                day_file.write(file_content)
+            month = month.lstrip("0")
+            with open(os.path.join("entries", year, month, day) + ".txt", "w", encoding="utf-8") as day_file:
+                day_file.write(text)
 
     def get_most_frequent_words(self, count: int) -> list:
-        return sorted(self.word_count_dict.items(), key=lambda item: item[1], reverse=True)[:count]
+        return sorted(self.word_count_map.items(), key=lambda item: item[1], reverse=True)[:count]
 
     def get_unique_word_count(self) -> int:
-        return len(self.word_count_dict)
+        return len(self.word_count_map)
 
     def get_total_word_count(self) -> int:
-        return sum(self.word_count_dict.values())
+        return sum(self.word_count_map.values())
 
     def get_word_occurrences(self, word: str) -> int:
-        return self.word_count_dict[word] if word in self.word_count_dict else 0
+        return self.word_count_map[word] if word in self.word_count_map else 0
 
     def get_english_word_count(self) -> int:
         # not accurate cuz a word can be both Slovak and English and I don't have a database of Slovak words to compare
@@ -119,35 +111,38 @@ class Journal:
         with open(os.path.join("..", "text", "words_alpha.txt")) as f:
             for line in f:
                 english_words.add(line.strip())
-        return sum(count for word, count in self.word_count_dict.items() if word in english_words)
-    
-    def get_day_from_date(self, date: str) -> str:
+        return sum(count for word, count in self.word_count_map.items() if word in english_words)
+
+    def get_entry_from_date(self, date: str) -> str:
         # date should be in the format DD.MM.YYYY
         try:
-            d, m, y = date.split(".")
-        except ValueError:
+            return self.entries_map[date]
+        except KeyError:
             return None
-        file_path = f"{entries_path}/Diarium_{y}-{m}-{d}.txt"
-        if not os.path.exists(file_path):
-            return None
-        with open(file_path, encoding="utf-8") as f:
-            return f.read()
 
     def get_random_day(self) -> str:
-        random_file = random.choice(hp.get_file_list())
-        with open(os.path.join(entries_path, random_file), encoding="utf-8") as f:
-            return hp.get_date_from_filename(random_file) + "\n" + f.read()
-        
+        date, text = random.choice(list(self.entries_map.items()))
+        return date + "\n" + text
+
     def get_longest_day(self) -> str:
         words_in_file = {}  # file: word_count
-        for file in hp.get_file_list(full_path=True):
-            with open(file, encoding="utf-8") as f:
-                words_in_file[file] = len(f.read().split())
-        file, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
-        with open(file, encoding="utf-8") as f:
-            return f"{hp.get_date_from_filename(file)}\nWord count: {word_count}\n\n{f.read()}"
+        for date, text in self.entries_map.items():
+            words_in_file[date] = len(text.split())
+        date, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
+        return f"{date}\nWord count: {word_count}\n\n{self.entries_map[date]}"
 
-    def create_help_table(self) -> Table:
+    def find_word(self, word: str, exact_match):
+        start = time.time()
+        output, occurrences = self.finder.find_and_get_output(word, exact_match)
+        took_time = round(time.time() - start, 2)
+        self.console.print(output)
+        self.console.print(f"The word {word} was found {occurrences} times",
+                           highlight=False)
+        self.console.print(f"Searched through {self.get_total_word_count()} words in {took_time}s",
+                           highlight=False)
+
+    @staticmethod
+    def create_help_table() -> Table:
         table = Table(title="Functions")
         for col in ("Command", "Description"):
             table.add_column(col)
@@ -162,7 +157,6 @@ class Journal:
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
         table.add_row("-update", "updates journal files and dictionary")
-        table.add_row("-fix", "updates dictionary")
         table.add_row("-clr", "clears console")
         table.add_row("-q", "quit")
         return table
@@ -177,16 +171,9 @@ class Journal:
             else:
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
             if action == "-f":
-                start = time.time()
-                output = self.finder.find_and_get_output(word=val, exact_match=False)
-                took_time = round(time.time() - start, 2)
-                self.console.print(output)
-                self.console.print(f"The word {val} was found {self.finder.get_current_occurrences()} times", highlight=False)
-                self.console.print(f"Searched through {self.get_total_word_count()} words in {took_time}s",
-                                   highlight=False)
+                self.find_word(word=val, exact_match=False)
             elif action == "-fp":
-                self.console.print(self.finder.find_and_get_output(word=val, exact_match=True))
-                self.console.print(f"The word {val} was found {self.finder.get_current_occurrences()} times", highlight=False)
+                self.find_word(word=val, exact_match=True)
             elif action == "-s":
                 self.console.print("All words count:", self.get_total_word_count())
                 self.console.print("Unique words count:", self.get_unique_word_count())
@@ -198,7 +185,7 @@ class Journal:
                 occurrences = self.finder.find_and_get_occurrences(word=val, exact_match=False)
                 self.console.print(f"The number of all occurrences (incl. variations) is {occurrences}")
             elif action == "-d":
-                file_content = self.get_day_from_date(date=val)
+                file_content = self.get_entry_from_date(date=val)
                 if file_content is None:
                     self.console.print("File not found")
                 else:
@@ -210,17 +197,18 @@ class Journal:
             elif action == "-lang":
                 eng_word_count = self.get_english_word_count()
                 self.console.print(f"All words: {self.get_total_word_count()} | English word count: {eng_word_count}")
-                self.console.print(f"Percentage of english words: {round(eng_word_count * 100 / self.get_total_word_count(), 3)}%")
+                self.console.print(
+                    f"Percentage of english words: {round(eng_word_count * 100 / self.get_total_word_count(), 3)}%")
             elif action == "-fol":
                 self.create_tree_folder_structure()
             elif action == "-h":
                 self.console.print(table)
             elif action == "-update":
-                files_before = hp.get_file_list()
-                self.update_diarium_files()
-                files_after = hp.get_file_list()
-                if files_after != files_before:
-                    self.console.print(f"Added {len(files_after) - len(files_before)} days")
+                entries_before = self.entries_map
+                self.update_entries_from_db()
+                entries_after = self.entries_map
+                if entries_after != entries_before:
+                    self.console.print(f"Added {len(entries_after) - len(entries_before)} entries")
                     self.console.print("Proceeding to update dictionary")
                     word_count_before = self.get_total_word_count()
                     self.write_dict()
@@ -231,14 +219,6 @@ class Journal:
                         self.console.print(f"Added {word_count_after - word_count_before} words to the dictionary")
                 else:
                     self.console.print("No new entries found")
-            elif action == "-fix":
-                word_count_before = self.get_total_word_count()
-                self.write_dict()
-                word_count_after = self.get_total_word_count()
-                if word_count_after - word_count_before == 0:
-                    self.console.print("No new words found")
-                else:
-                    self.console.print(f"{word_count_after - word_count_before} words added to the dictionary")
             elif action == "-clr":
                 os.system("cls")
             elif action == "-q":
@@ -250,8 +230,4 @@ class Journal:
 if __name__ == "__main__":
     with open("config.json") as cfg:
         config = json.load(cfg)
-    base_path = os.getcwd()
-    entries_path = os.path.join(base_path, "entries")
-    if not os.path.exists(entries_path):
-        os.makedirs(entries_path)
     Journal().start()
