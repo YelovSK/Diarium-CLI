@@ -151,7 +151,7 @@ class Journal:
         table.add_row("-fp <word>", "searches for exact matches of a word")
         table.add_row("-s (number_of_top_words_showed)", "shows stats")
         table.add_row("-c <word>", "shows the number of occurrences of a word")
-        table.add_row("-d <dd.mm.yyyy>", "shows a specific day")
+        table.add_row("-d <dd-mm-yyyy>", "shows a specific day")
         table.add_row("-r", "shows a random day")
         table.add_row("-l", "shows the longest day")
         table.add_row("-lang", "percentage of english words")
