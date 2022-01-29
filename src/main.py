@@ -58,7 +58,7 @@ class Journal:
         try:
             searched_file = self.find_database_file()
         except FileNotFoundError:
-            os.system("pause")
+            input("Press the <Enter> key to exit...")
             sys.exit()
         self.console.print(f"Found file in '{searched_file}'")
         while True:
@@ -217,7 +217,7 @@ class Journal:
             elif action == "-h":
                 self.console.print(table)
             elif action == "-clr":
-                os.system("cls")
+                os.system("cls||clear")
             elif action == "-q":
                 break
             else:
@@ -227,6 +227,6 @@ class Journal:
 if __name__ == "__main__":
     if not os.path.exists("config.json"):
         Console().print("'config.json' not found")
-        os.system("pause")
+        input("Press the <Enter> key to exit...")
         sys.exit()
     Journal().start()
