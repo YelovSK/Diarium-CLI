@@ -55,24 +55,17 @@ class Journal:
         return entries
 
     def get_years(self) -> Set[int]:
-        return {int(date.split("-")[-1]) for date in self.entries_map.keys()}
+        return {int(date.split(".")[-1]) for date in self.entries_map.keys()}
 
     def create_tree_folder_structure(self) -> None:
-        self.create_year_and_month_folders()
-        self.create_day_files()
-
-    def create_year_and_month_folders(self) -> None:
-        for year in [str(y) for y in self.get_years()]:
-            if os.path.exists(os.path.join("entries", year)):
-                shutil.rmtree(os.path.join("entries", year))
-            for month in [str(m) for m in range(1, 12 + 1)]:
-                pathlib.Path(os.path.join("entries", year, month)).mkdir(parents=True, exist_ok=True)
-
-    def create_day_files(self) -> None:
+        if os.path.exists("entries"):
+            shutil.rmtree("entries")
         for date, text in self.entries_map.items():
-            day, month, year = date.split("-")
+            day, month, year = date.split(".")
             day = day.lstrip("0")
             month = month.lstrip("0")
+            if not os.path.exists(os.path.join("entries", year, month)):
+                pathlib.Path(os.path.join("entries", year, month)).mkdir(parents=True, exist_ok=True)
             with open(os.path.join("entries", year, month, day) + ".txt", "w", encoding="utf-8") as day_file:
                 day_file.write(text)
 
