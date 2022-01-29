@@ -1,17 +1,16 @@
 import re
 from io import StringIO
 from rich.progress import track
-from typing import Dict, Tuple, List
 
 
 class Finder:
 
-    def __init__(self, entries: Dict[str, str]) -> None:
+    def __init__(self, entries: dict[str, str]) -> None:
         self.entries = entries
         self.occurrences = 0
         self.exact_match = False
 
-    def find_and_get_output(self, word: str, exact_match: bool) -> Tuple[str, int]:
+    def find_and_get_output(self, word: str, exact_match: bool) -> tuple[str, int]:
         return self._find(word, exact_match), self.occurrences
 
     def find_and_get_occurrences(self, word: str, exact_match: bool) -> int:
@@ -27,7 +26,7 @@ class Finder:
             for entry in track(self.entries.items(), description=f"Searching for {word}")
         )
 
-    def _find_word_in_file(self, entry: Dict[str, str], word: str) -> str:
+    def _find_word_in_file(self, entry: tuple[str, str], word: str) -> str:
         file_output = StringIO()
         date, text = entry
         sentences = self.split_text_into_sentences(text)
@@ -41,7 +40,7 @@ class Finder:
         return file_output.getvalue()
 
     @staticmethod
-    def split_text_into_sentences(text: str) -> List[str]:
+    def split_text_into_sentences(text: str) -> list[str]:
         split_regex = r"(?<=[.!?\n])\s+"
         return [sentence.strip() for sentence in re.split(split_regex, text)]
 

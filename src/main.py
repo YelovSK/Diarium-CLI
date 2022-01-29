@@ -11,7 +11,6 @@ import platform
 import helper as hp
 from io import StringIO
 from collections import Counter
-from typing import List
 from rich.console import Console
 from rich.table import Table
 from finder import Finder
@@ -26,13 +25,14 @@ class Journal:
         self.word_count_map = {}
         self.entries_map = {}
         self.load_entries()
-    
+
     def load_entries(self) -> None:
         start = time.time()
         self.update_entries_from_db()
         self.create_word_frequency()
         took_time = round((time.time() - start) * 1000)
-        self.console.print(f"Loaded {len(self.entries_map)} entries and {self.get_total_word_count()} words in {took_time}ms")
+        self.console.print(
+            f"Loaded {len(self.entries_map)} entries and {self.get_total_word_count()} words in {took_time}ms")
 
     def create_word_frequency(self) -> None:
         content = "".join(self.entries_map.values()).lower()
@@ -46,7 +46,7 @@ class Journal:
             date = hp.get_date_from_tick(int(ticks))
             self.entries_map[date] = text
 
-    def get_entries_from_db(self) -> List[str]:
+    def get_entries_from_db(self) -> list[str]:
         if not os.path.exists(self.config["diary.db path"]):
             self.prompt_to_find_database_file()
         con = sqlite3.connect(self.config["diary.db path"])
@@ -77,7 +77,8 @@ class Journal:
                 self.console.print("Path added to config.json")
                 break
 
-    def find_database_file(self) -> str:
+    @staticmethod
+    def find_database_file() -> str:
         if platform.system() != "Windows":
             raise FileNotFoundError
         appdata_path = os.getenv("LOCALAPPDATA")
@@ -122,7 +123,7 @@ class Journal:
                 english_words.add(line.strip())
         return sum(count for word, count in self.word_count_map.items() if word in english_words)
 
-    def get_entry_from_date(self, date: str) -> str|None:
+    def get_entry_from_date(self, date: str) -> str | None:
         try:
             return self.entries_map[date]
         except KeyError:
