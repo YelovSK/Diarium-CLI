@@ -54,9 +54,6 @@ class Journal:
         con.close()
         return entries
 
-    def get_years(self) -> Set[int]:
-        return {int(date.split(".")[-1]) for date in self.entries_map.keys()}
-
     def create_tree_folder_structure(self) -> None:
         if os.path.exists("entries"):
             shutil.rmtree("entries")
