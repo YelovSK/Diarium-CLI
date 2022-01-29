@@ -29,7 +29,7 @@ class Finder:
     def _find_word_in_file(self, entry: tuple[str, str], word: str) -> str:
         file_output = StringIO()
         date, text = entry
-        sentences = self.split_text_into_sentences(text)
+        sentences = self._split_text_into_sentences(text)
         sentences_containing_word = [s for s in sentences if self._is_word_in_sentence(s, word)]
         if not sentences_containing_word:
             return file_output.getvalue()
@@ -40,17 +40,18 @@ class Finder:
         return file_output.getvalue()
 
     @staticmethod
-    def split_text_into_sentences(text: str) -> list[str]:
+    def _split_text_into_sentences(text: str) -> list[str]:
         split_regex = r"(?<=[.!?\n])\s+"
         return [sentence.strip() for sentence in re.split(split_regex, text)]
 
     def _find_word_in_sentence(self, sentence: str, word: str) -> str:
         sentence_output = StringIO()
-        highlight_style = "bold red"
+        highlight_start = "[bold red]"
+        highlight_end = "[/bold red]"
         for curr_word in sentence.split():
             if self._is_the_same_word(curr_word, word):
                 self.occurrences += 1
-                sentence_output.write(f"[{highlight_style}]{curr_word}[/{highlight_style}] ")
+                sentence_output.write(f"{highlight_start}{curr_word}{highlight_end} ")
             else:
                 sentence_output.write(f"{curr_word} ")
         return sentence_output.getvalue()

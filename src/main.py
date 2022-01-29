@@ -134,15 +134,8 @@ class Journal:
         return date + "\n" + text
 
     def get_longest_day(self) -> str:
-        words_in_file = {}  # file: word_count
-        for date, text in self.entries_map.items():
-            words_in_file[date] = len(text.split())
-        date, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
-        output = StringIO()
-        output.write(date + "\n")
-        output.write(self.entries_map[date])
-        output.write(f"\nWord count: {word_count}")
-        return output.getvalue()
+        date, text = sorted(self.entries_map.items(), key=lambda x: len(x[1].split()))[-1]
+        return date + "\n" + text + "\n" + f"Word count: {len(text.split())}"
 
     def find_word(self, word: str, exact_match) -> None:
         start = time.time()
