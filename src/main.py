@@ -77,7 +77,9 @@ class Journal:
                 break
 
     def find_database_file(self) -> str:
-        appdata_path = os.getenv("LOCALAPPDATA")
+        appdata_path = os.getenv("LOCALAPPDATA")    # Linux (:
+        if appdata_path is None:
+            raise FileNotFoundError
         packages_dirs = os.listdir(os.path.join(appdata_path, "Packages"))
         diarium_dir = ""
         for _dir in packages_dirs:
