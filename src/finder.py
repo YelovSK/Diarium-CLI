@@ -1,5 +1,3 @@
-import shelve
-import os
 import re
 from io import StringIO
 from rich.progress import track
@@ -8,7 +6,7 @@ from typing import Dict, Tuple, List
 
 class Finder:
 
-    def __init__(self, entries: Dict[str, str]):
+    def __init__(self, entries: Dict[str, str]) -> None:
         self.entries = entries
         self.occurrences = 0
         self.exact_match = False

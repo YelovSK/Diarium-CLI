@@ -9,7 +9,7 @@ import json
 import helper as hp
 from io import StringIO
 from collections import Counter
-from typing import List, Set
+from typing import List
 from rich.console import Console
 from rich.table import Table
 from finder import Finder
@@ -23,7 +23,7 @@ class Journal:
         self.entries_map = {}
         self.load_entries()
     
-    def load_entries(self):
+    def load_entries(self) -> None:
         start = time.time()
         self.update_entries_from_db()
         self.create_word_frequency()
@@ -107,7 +107,7 @@ class Journal:
         output.write(f"\nWord count: {word_count}")
         return output.getvalue()
 
-    def find_word(self, word: str, exact_match):
+    def find_word(self, word: str, exact_match) -> None:
         start = time.time()
         output, occurrences = Finder(self.entries_map).find_and_get_output(word, exact_match)
         took_time = round(time.time() - start, 2)
