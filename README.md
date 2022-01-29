@@ -3,12 +3,12 @@ Command-line interface providing random functions for the journaling app [Diariu
 ## Configuration
 Find the path of your `diary.db` file created by Diarium and put it in `config.json`.
 
-Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Partl.DailyDiary_jr9bq2af9farr/LocalState/diary.db`.
+Program will try to search for the file on launch if you're on Windows.
 
 ## Launch
-`pip install -r requirements.txt` to install dependencies
+`pip install -r requirements.txt` to install dependencies.
 
-`python src/main.py` from the root folder
+`python src/main.py` from the root folder.
 
 ## Usage
 | Command | Description |

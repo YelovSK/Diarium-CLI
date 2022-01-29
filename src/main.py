@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import pathlib
 import random
@@ -9,7 +10,6 @@ import sqlite3
 import json
 import platform
 import helper as hp
-from io import StringIO
 from collections import Counter
 from rich.console import Console
 from rich.table import Table
