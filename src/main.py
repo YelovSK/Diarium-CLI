@@ -119,7 +119,7 @@ class Journal:
 
     def find_word(self, word: str, exact_match):
         start = time.time()
-        output, occurrences = Finder().find_and_get_output(word, exact_match)
+        output, occurrences = Finder(self.entries_map).find_and_get_output(word, exact_match)
         took_time = round(time.time() - start, 2)
         self.console.print(output)
         self.console.print(f"The word {word} was found {occurrences} times",
@@ -168,7 +168,7 @@ class Journal:
                 self.console.print(self.get_most_frequent_words(int(val)))
             elif action == "-c":
                 self.console.print("Exact matches:", self.get_word_occurrences(val))
-                occurrences = Finder().find_and_get_occurrences(word=val, exact_match=False)
+                occurrences = Finder(self.entries_map).find_and_get_occurrences(word=val, exact_match=False)
                 self.console.print("All matches:", occurrences)
             elif action == "-d":
                 file_content = self.get_entry_from_date(date=val)

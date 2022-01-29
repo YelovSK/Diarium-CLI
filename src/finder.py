@@ -8,7 +8,8 @@ from typing import Dict, Tuple, List
 
 class Finder:
 
-    def __init__(self):
+    def __init__(self, entries: Dict[str, str]):
+        self.entries = entries
         self.occurrences = 0
         self.exact_match = False
 
@@ -23,11 +24,9 @@ class Finder:
         self.exact_match = exact_match
         self.occurrences = 0
         word = word.lower()
-        with shelve.open(os.path.join(os.getcwd(), "shelve", "journal")) as jour:
-            entries_map = jour["entries"]
         return "".join(
             self._find_word_in_file(entry, word)
-            for entry in track(entries_map.items(), description=f"Searching for {word}")
+            for entry in track(self.entries.items(), description=f"Searching for {word}")
         )
 
     def _find_word_in_file(self, entry: Dict[str, str], word: str) -> str:
