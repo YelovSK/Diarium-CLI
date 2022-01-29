@@ -2,17 +2,16 @@ import os
 import pathlib
 import random
 import re
-import shelve
 import shutil
 import time
 import sqlite3
 import json
 import helper as hp
+from io import StringIO
 from collections import Counter
 from typing import List, Set
 from rich.console import Console
 from rich.table import Table
-from rich.progress import track
 from finder import Finder
 
 
@@ -22,42 +21,23 @@ class Journal:
         self.console = Console()
         self.word_count_map = {}
         self.entries_map = {}
-        self.init_dict()
-        self.check_for_new_files()
-
-    def init_dict(self) -> None:
-        try:
-            self.read_dict()
-        except (KeyError, FileNotFoundError):
-            self.write_dict()
-
-    def read_dict(self) -> None:
-        with shelve.open(os.path.join("shelve", "journal")) as jour:
-            self.word_count_map = jour["freq"]
-            self.entries_map = jour["entries"]
-
-    def write_dict(self) -> None:
-        self.create_word_frequency()
+        self.load_entries()
+    
+    def load_entries(self):
+        start = time.time()
         self.update_entries_from_db()
-        pathlib.Path(os.path.join("shelve")).mkdir(parents=True, exist_ok=True)
-        with shelve.open(os.path.join("shelve", "journal")) as jour:
-            jour["freq"] = self.word_count_map
-            jour["entries"] = self.entries_map
+        self.create_word_frequency()
+        took_time = round((time.time() - start) * 1000)
+        self.console.print(f"Loaded {len(self.entries_map)} entries and {self.get_total_word_count()} words in {took_time}ms")
 
     def create_word_frequency(self) -> None:
         content = "".join(self.entries_map.values()).lower()
         self.word_count_map = Counter(re.findall(r"\w+", content))
 
-    def check_for_new_files(self):
-        curr_entries = len(self.entries_map)
-        all_entries = len(self.get_entries_from_db())
-        if all_entries > curr_entries:
-            self.console.print(f"{all_entries - curr_entries} new entries found, you can type '-update'")
-
     def update_entries_from_db(self) -> None:
         self.entries_map = {}
         entries = self.get_entries_from_db()
-        for text_raw, ticks in track(entries, description="Updating entries map"):
+        for text_raw, ticks in entries:
             text = hp.decode_entities(text_raw).replace("<p>", "").replace("</p>", "\n")
             date = hp.get_date_from_tick(int(ticks))
             self.entries_map[date] = text
@@ -65,6 +45,10 @@ class Journal:
     @staticmethod
     def get_entries_from_db() -> List[str]:
         database_path = config["diary.db path"]
+        if not os.path.exists(database_path):
+            Console().print(f"'diary.db' file in '{database_path}' not found")
+            os.system("pause")
+            exit()
         con = sqlite3.connect(database_path)
         entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
         con.close()
@@ -113,7 +97,6 @@ class Journal:
         return sum(count for word, count in self.word_count_map.items() if word in english_words)
 
     def get_entry_from_date(self, date: str) -> str:
-        # date should be in the format DD.MM.YYYY
         try:
             return self.entries_map[date]
         except KeyError:
@@ -128,7 +111,11 @@ class Journal:
         for date, text in self.entries_map.items():
             words_in_file[date] = len(text.split())
         date, word_count = sorted(words_in_file.items(), key=lambda item: item[1])[-1]
-        return f"{date}\nWord count: {word_count}\n\n{self.entries_map[date]}"
+        output = StringIO()
+        output.write(date + "\n")
+        output.write(self.entries_map[date])
+        output.write(f"\nWord count: {word_count}")
+        return output.getvalue()
 
     def find_word(self, word: str, exact_match):
         start = time.time()
@@ -155,7 +142,6 @@ class Journal:
         table.add_row("-l", "shows the longest day")
         table.add_row("-lang", "percentage of english words")
         table.add_row("-fol", "creates a folder structure")
-        table.add_row("-update", "updates journal files and dictionary")
         table.add_row("-clr", "clears console")
         table.add_row("-q", "quit")
         return table
@@ -174,15 +160,16 @@ class Journal:
             elif action == "-fp":
                 self.find_word(word=val, exact_match=True)
             elif action == "-s":
-                self.console.print("All words count:", self.get_total_word_count())
-                self.console.print("Unique words count:", self.get_unique_word_count())
+                self.console.print("Entries:", len(self.entries_map))
+                self.console.print("Words:", self.get_total_word_count())
+                self.console.print("Unique words:", self.get_unique_word_count())
                 if not val or not val.isnumeric():
                     val = 10
                 self.console.print(self.get_most_frequent_words(int(val)))
             elif action == "-c":
-                self.console.print(f"The exact match of word '{val}' was found {self.get_word_occurrences(val)} times")
-                occurrences = self.finder.find_and_get_occurrences(word=val, exact_match=False)
-                self.console.print(f"The number of all occurrences (incl. variations) is {occurrences}")
+                self.console.print("Exact matches:", self.get_word_occurrences(val))
+                occurrences = Finder().find_and_get_occurrences(word=val, exact_match=False)
+                self.console.print("All matches:", occurrences)
             elif action == "-d":
                 file_content = self.get_entry_from_date(date=val)
                 if file_content is None:
@@ -195,29 +182,13 @@ class Journal:
                 self.console.print(self.get_longest_day())
             elif action == "-lang":
                 eng_word_count = self.get_english_word_count()
-                self.console.print(f"All words: {self.get_total_word_count()} | English word count: {eng_word_count}")
+                self.console.print(f"All words: {self.get_total_word_count()} | English words: {eng_word_count}")
                 self.console.print(
                     f"Percentage of english words: {round(eng_word_count * 100 / self.get_total_word_count(), 3)}%")
             elif action == "-fol":
                 self.create_tree_folder_structure()
             elif action == "-h":
                 self.console.print(table)
-            elif action == "-update":
-                entries_before = self.entries_map
-                self.update_entries_from_db()
-                entries_after = self.entries_map
-                if entries_after != entries_before:
-                    self.console.print(f"Added {len(entries_after) - len(entries_before)} entries")
-                    self.console.print("Proceeding to update dictionary")
-                    word_count_before = self.get_total_word_count()
-                    self.write_dict()
-                    word_count_after = self.get_total_word_count()
-                    if word_count_after - word_count_before == 0:
-                        self.console.print("No new words found")
-                    else:
-                        self.console.print(f"Added {word_count_after - word_count_before} words to the dictionary")
-                else:
-                    self.console.print("No new entries found")
             elif action == "-clr":
                 os.system("cls")
             elif action == "-q":

@@ -23,6 +23,5 @@ Should be something like `C:/Users/<username>/AppData/Local/Packages/49297T.Part
 | -l | shows the longest day
 | -lang | percentage of english words
 | -fol | creates a folder structure
-| -update | updates journal files
 | -clr | clears console
 | -q | quit

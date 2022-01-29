@@ -27,7 +27,7 @@ class Finder:
             entries_map = jour["entries"]
         return "".join(
             self._find_word_in_file(entry, word)
-            for entry in track(entries_map.items(), description="Searching")
+            for entry in track(entries_map.items(), description=f"Searching for {word}")
         )
 
     def _find_word_in_file(self, entry: Dict[str, str], word: str) -> str:
