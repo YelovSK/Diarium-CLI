@@ -7,6 +7,7 @@ import sys
 import time
 import sqlite3
 import json
+import platform
 import helper as hp
 from io import StringIO
 from collections import Counter
@@ -77,21 +78,17 @@ class Journal:
                 break
 
     def find_database_file(self) -> str:
-        appdata_path = os.getenv("LOCALAPPDATA")    # Linux (:
-        if appdata_path is None:
+        if platform.system() != "Windows":
             raise FileNotFoundError
+        appdata_path = os.getenv("LOCALAPPDATA")
         packages_dirs = os.listdir(os.path.join(appdata_path, "Packages"))
-        diarium_dir = ""
         for _dir in packages_dirs:
             if "DailyDiary" in _dir:
-                diarium_dir = _dir
+                diary_path = os.path.join(appdata_path, "Packages", _dir, "LocalState", "diary.db")
+                if os.path.exists(diary_path):
+                    return diary_path
                 break
-        if diarium_dir == "":
-            raise FileNotFoundError
-        diary_path = os.path.join(appdata_path, "Packages", diarium_dir, "LocalState", "diary.db")
-        if not os.path.exists(diary_path):
-            raise FileNotFoundError
-        return diary_path
+        raise FileNotFoundError
 
     def create_tree_folder_structure(self) -> None:
         if os.path.exists("entries"):
