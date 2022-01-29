@@ -3,6 +3,7 @@ import pathlib
 import random
 import re
 import shutil
+import sys
 import time
 import sqlite3
 import json
@@ -18,6 +19,8 @@ from finder import Finder
 class Journal:
 
     def __init__(self) -> None:
+        with open("config.json") as cfg:
+            self.config = json.load(cfg)
         self.console = Console()
         self.word_count_map = {}
         self.entries_map = {}
@@ -42,17 +45,51 @@ class Journal:
             date = hp.get_date_from_tick(int(ticks))
             self.entries_map[date] = text
 
-    @staticmethod
-    def get_entries_from_db() -> List[str]:
-        database_path = config["diary.db path"]
-        if not os.path.exists(database_path):
-            Console().print(f"'diary.db' file in '{database_path}' not found")
-            os.system("pause")
-            exit()
-        con = sqlite3.connect(database_path)
+    def get_entries_from_db(self) -> List[str]:
+        if not os.path.exists(self.config["diary.db path"]):
+            self.prompt_to_find_database_file()
+        con = sqlite3.connect(self.config["diary.db path"])
         entries = con.cursor().execute("SELECT Text, DiaryEntryId FROM Entries").fetchall()
         con.close()
         return entries
+
+    def prompt_to_find_database_file(self) -> None:
+        self.console.print(f"'diary.db' file in '{self.config['diary.db path']}' not found")
+        try:
+            searched_file = self.find_database_file()
+        except FileNotFoundError:
+            os.system("pause")
+            sys.exit()
+        self.console.print(f"Found file in '{searched_file}'")
+        while True:
+            ans = input("Do you want to add it to config.json? y/n\n>> ").lower()
+            if ans == "n":
+                sys.exit()
+            if ans == "y":
+                with open("config.json", "r+") as f:
+                    data = json.load(f)
+                    data["diary.db path"] = searched_file
+                    f.seek(0)
+                    json.dump(data, f)
+                    f.truncate()
+                self.config["diary.db path"] = searched_file
+                self.console.print("Path added to config.json")
+                break
+
+    def find_database_file(self) -> str:
+        appdata_path = os.getenv("LOCALAPPDATA")
+        packages_dirs = os.listdir(os.path.join(appdata_path, "Packages"))
+        diarium_dir = ""
+        for _dir in packages_dirs:
+            if "DailyDiary" in _dir:
+                diarium_dir = _dir
+                break
+        if diarium_dir == "":
+            raise FileNotFoundError
+        diary_path = os.path.join(appdata_path, "Packages", diarium_dir, "LocalState", "diary.db")
+        if not os.path.exists(diary_path):
+            raise FileNotFoundError
+        return diary_path
 
     def create_tree_folder_structure(self) -> None:
         if os.path.exists("entries"):
@@ -86,7 +123,7 @@ class Journal:
                 english_words.add(line.strip())
         return sum(count for word, count in self.word_count_map.items() if word in english_words)
 
-    def get_entry_from_date(self, date: str) -> str:
+    def get_entry_from_date(self, date: str) -> str|None:
         try:
             return self.entries_map[date]
         except KeyError:
@@ -188,6 +225,8 @@ class Journal:
 
 
 if __name__ == "__main__":
-    with open("config.json") as cfg:
-        config = json.load(cfg)
+    if not os.path.exists("config.json"):
+        Console().print("'config.json' not found")
+        os.system("pause")
+        sys.exit()
     Journal().start()
