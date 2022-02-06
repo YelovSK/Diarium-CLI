@@ -74,7 +74,14 @@ def lang():
 @cli.command()
 def folder():
     """Puts entries into files into appropriate folders."""
-    journal.create_tree_folder_structure()
+    path = input(f"Directory: (empty for {os.getcwd()}): ")
+    if path == "":
+        path = os.getcwd() + "/entries"
+    elif not os.path.exists(path):
+        console.print("Path does not exist")
+        return
+    new_path = os.path.join(path, "entries")
+    journal.create_tree_folder_structure(new_path)
 
 
 @cli.command()

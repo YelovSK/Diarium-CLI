@@ -9,6 +9,7 @@ import time
 import sqlite3
 import platform
 import src.helper as hp
+from importlib import resources
 from collections import Counter
 from rich.console import Console
 from src.finder import Finder
@@ -68,16 +69,16 @@ class Journal:
                 break
         raise FileNotFoundError
 
-    def create_tree_folder_structure(self) -> None:
-        if os.path.exists("entries"):
-            shutil.rmtree("entries")
+    def create_tree_folder_structure(self, new_path: str) -> None:
+        if os.path.exists(new_path):
+            shutil.rmtree(new_path)
         for date, text in self.entries_map.items():
             day, month, year = date.split(".")
             day = day.lstrip("0")
             month = month.lstrip("0")
-            if not os.path.exists(os.path.join("entries", year, month)):
-                pathlib.Path(os.path.join("entries", year, month)).mkdir(parents=True, exist_ok=True)
-            with open(os.path.join("entries", year, month, day) + ".txt", "w", encoding="utf-8") as day_file:
+            if not os.path.exists(os.path.join(new_path, year, month)):
+                pathlib.Path(os.path.join(new_path, year, month)).mkdir(parents=True, exist_ok=True)
+            with open(os.path.join(new_path, year, month, day) + ".txt", "w", encoding="utf-8") as day_file:
                 day_file.write(text)
 
     def get_most_frequent_words(self, count: int) -> list:
@@ -95,7 +96,7 @@ class Journal:
     def get_english_word_count(self) -> int:
         # not accurate cuz a word can be both Slovak and English and I don't have a database of Slovak words to compare
         english_words = set()
-        with open(os.path.join("..", "text", "words_alpha.txt")) as f:
+        with resources.open_text("src", "words_alpha.txt") as f:
             for line in f:
                 english_words.add(line.strip())
         return sum(count for word, count in self.word_count_map.items() if word in english_words)
