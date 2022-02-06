@@ -1,8 +1,8 @@
 from __future__ import annotations
+import os
+import rich
 import click
 from click_shell import shell
-import rich
-
 from src.journal import Journal
 
 journal = Journal()
@@ -75,6 +75,12 @@ def lang():
 def folder():
     """Puts entries into files into appropriate folders."""
     journal.create_tree_folder_structure()
+
+
+@cli.command()
+def clear():
+    """Clears console."""
+    os.system("cls||clear")
 
 
 if __name__ == "__main__":
