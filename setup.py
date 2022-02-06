@@ -9,13 +9,14 @@ def read_requirements():
 setup(
     name="diarium-cli",
     version="0.1",
+    description="CLI tool for journaling app Diarium",
     author="Yelov",
-    package_dir={"": "src"},
-    packages=find_packages("src"),
+    # package_dir={"": "src"},
+    packages=find_packages(),
     include_package_date=True,
     install_requires=read_requirements(),
     entry_points="""
         [console_scripts]
-        diarium-cli=main:cli
+        diarium-cli=src.main:cli
     """,
 )

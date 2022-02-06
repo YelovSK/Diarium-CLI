@@ -8,10 +8,10 @@ import sys
 import time
 import sqlite3
 import platform
-import helper as hp
+import src.helper as hp
 from collections import Counter
 from rich.console import Console
-from finder import Finder
+from src.finder import Finder
 
 
 class Journal:
