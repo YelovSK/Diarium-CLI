@@ -4,5 +4,4 @@ __pycache__/
 .
 *.txt
 !requirements.txt
-journal.*
 *.exe
