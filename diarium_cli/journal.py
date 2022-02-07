@@ -8,11 +8,11 @@ import sys
 import time
 import sqlite3
 import platform
-import src.helper as hp
+import diarium_cli.helper as hp
 from importlib import resources
 from collections import Counter
 from rich.console import Console
-from src.finder import Finder
+from diarium_cli.finder import Finder
 
 
 class Journal:

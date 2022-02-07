@@ -3,7 +3,7 @@ import os
 import rich
 import click
 from click_shell import shell
-from src.journal import Journal
+from diarium_cli.journal import Journal
 
 journal = Journal()
 console = rich.console.Console()
