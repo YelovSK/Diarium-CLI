@@ -94,12 +94,14 @@ class Journal:
         return self.word_count_map[word] if word in self.word_count_map else 0
 
     def get_english_word_count(self) -> int:
-        # not accurate cuz a word can be both Slovak and English and I don't have a database of Slovak words to compare
-        english_words = set()
-        with resources.open_text("src", "words_alpha.txt") as f:
-            for line in f:
-                english_words.add(line.strip())
-        return sum(count for word, count in self.word_count_map.items() if word in english_words)
+        with resources.open_text("diarium_cli", "english_words.txt") as f:
+            english_words = set(f.read().splitlines())
+        with resources.open_text("diarium_cli", "slovak_words.txt") as f:
+            slovak_words = set(f.read().splitlines())
+        return sum(
+            count for word, count in self.word_count_map.items()
+            if word in english_words and word not in slovak_words
+        )
 
     def get_entry_from_date(self, date: str) -> str | None:
         try:
