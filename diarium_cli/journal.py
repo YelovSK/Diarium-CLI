@@ -8,6 +8,7 @@ import sys
 import time
 import sqlite3
 import platform
+from unidecode import unidecode
 import diarium_cli.helper as hp
 from importlib import resources
 from collections import Counter
@@ -97,7 +98,7 @@ class Journal:
         with resources.open_text("diarium_cli", "english_words.txt") as f:
             english_words = set(f.read().splitlines())
         with resources.open_text("diarium_cli", "slovak_words.txt") as f:
-            slovak_words = set(f.read().splitlines())
+            slovak_words = {unidecode(word) for word in f.read().splitlines()}
         return sum(
             count for word, count in self.word_count_map.items()
             if word in english_words and word not in slovak_words

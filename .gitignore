@@ -3,7 +3,6 @@ __pycache__/
 .*/
 .
 *.txt
-!requirements.txt
 !words_alpha.txt
 *.exe
 *.bat
