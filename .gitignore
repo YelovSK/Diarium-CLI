@@ -6,3 +6,4 @@ __pycache__/
 !words_alpha.txt
 *.exe
 *.bat
+diarium_cli.egg-info

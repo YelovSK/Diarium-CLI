@@ -63,12 +63,19 @@ def longest():
 
 
 @cli.command()
-def lang():
-    """Shows the percentage of English words."""
-    eng_word_count = journal.get_english_word_count()
-    console.print(f"All words: {journal.get_total_word_count()} | English words: {eng_word_count}")
+@click.option("-l", "--list", is_flag=True, help="List words.")
+def lang(list: bool = False):
+    """Shows the number of English and Slovak words."""
+    if list:
+        eng_words, sk_words = journal.get_language_words()
+        console.print("ENGLISH WORDS:")
+        console.print(", ".join(eng_words), style="red")
+        console.print("SLOVAK WORDS:")
+        console.print(", ".join(sk_words), style="blue")
+    eng_count, sk_count = journal.get_language_words_count()
     console.print(
-        f"Percentage of english words: {round(eng_word_count * 100 / journal.get_total_word_count(), 3)}%")
+        f"All words: {journal.get_total_word_count()} | English words: {eng_count} | Slovak words: {sk_count}"
+    )
 
 
 @cli.command()

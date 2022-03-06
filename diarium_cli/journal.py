@@ -23,6 +23,8 @@ class Journal:
         self.word_count_map = {}
         self.entries_map = {}
         self.load_entries()
+        self.english_words = None
+        self.slovak_words = None
 
     def load_entries(self) -> None:
         start = time.time()
@@ -79,7 +81,7 @@ class Journal:
             month = month.lstrip("0")
             if not os.path.exists(os.path.join(new_path, year, month)):
                 pathlib.Path(os.path.join(new_path, year, month)).mkdir(parents=True, exist_ok=True)
-            with open(os.path.join(new_path, year, month, day) + ".txt", "w", encoding="utf-8") as day_file:
+            with open(f"{os.path.join(new_path, year, month, day)}.txt", "w", encoding="utf-8") as day_file:
                 day_file.write(text)
 
     def get_most_frequent_words(self, count: int) -> list:
@@ -94,15 +96,25 @@ class Journal:
     def get_word_occurrences(self, word: str) -> int:
         return self.word_count_map[word] if word in self.word_count_map else 0
 
-    def get_english_word_count(self) -> int:
-        with resources.open_text("diarium_cli", "english_words.txt") as f:
-            english_words = set(f.read().splitlines())
-        with resources.open_text("diarium_cli", "slovak_words.txt") as f:
-            slovak_words = {unidecode(word) for word in f.read().splitlines()}
-        return sum(
-            count for word, count in self.word_count_map.items()
-            if word in english_words and word not in slovak_words
+    def initialize_language_words(self) -> None:
+        if self.english_words is None or self.slovak_words is None:
+            with resources.open_text("diarium_cli", "english_words.txt") as f:
+                self.english_words = set(f.read().splitlines())
+            with resources.open_text("diarium_cli", "slovak_words.txt") as f:
+                self.slovak_words = {unidecode(word) for word in f.read().splitlines()}
+
+    def get_language_words_count(self) -> tuple:
+        self.initialize_language_words()
+        return (
+            sum(count for word, count in self.word_count_map.items() if word in words)
+            for words in (self.english_words, self.slovak_words)
         )
+
+    def get_language_words(self) -> tuple:
+        self.initialize_language_words()
+        english = [word for word in self.word_count_map.keys() if word in self.english_words]
+        slovak = [word for word in self.word_count_map.keys() if word in self.slovak_words]
+        return english, slovak
 
     def get_entry_from_date(self, date: str) -> str | None:
         try:
