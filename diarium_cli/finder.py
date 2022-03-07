@@ -1,6 +1,6 @@
-import re
 from io import StringIO
 from rich.progress import track
+from nltk.tokenize import sent_tokenize
 
 
 class Finder:
@@ -29,7 +29,7 @@ class Finder:
     def _find_word_in_file(self, entry: tuple[str, str], word: str) -> str:
         file_output = StringIO()
         date, text = entry
-        sentences = self._split_text_into_sentences(text)
+        sentences = sent_tokenize(text)
         sentences_containing_word = [s for s in sentences if self._is_word_in_sentence(s, word)]
         if not sentences_containing_word:
             return file_output.getvalue()
@@ -38,11 +38,6 @@ class Finder:
             file_output.write(self._find_word_in_sentence(sentence, word) + "\n")
         file_output.write("\n")
         return file_output.getvalue()
-
-    @staticmethod
-    def _split_text_into_sentences(text: str) -> list[str]:
-        split_regex = r"(?<=[.!?\n])\s+"
-        return [sentence.strip() for sentence in re.split(split_regex, text)]
 
     def _find_word_in_sentence(self, sentence: str, word: str) -> str:
         sentence_output = StringIO()
